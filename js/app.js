@@ -317,7 +317,10 @@ function renderWorkoutDay(dayIdx) {
           <div class="ex-name">${esc(ex.name)}</div>
           <div class="ex-meta">${item.sets} sets · ${item.repRange[0]}–${item.repRange[1]} reps · ${item.rir} RIR</div>
         </div>
-        <button class="info-btn" data-ex-info="${item.exerciseId}">ⓘ</button>
+        <div class="ex-btns">
+          <button class="icon-btn swap-btn" data-swap="${item.exerciseId}" title="Swap exercise">⇄</button>
+          <button class="icon-btn info-btn" data-ex-info="${item.exerciseId}" title="How to">ⓘ</button>
+        </div>
       </div>
       <div class="last-line">${lastTxt}</div>
       <div class="suggestion suggestion-${sugg.action}">⬆ ${esc(sugg.text)}</div>
@@ -339,6 +342,11 @@ function wireWorkoutDay(dayIdx) {
   }));
   // info popups
   $$("[data-ex-info]").forEach(b => b.addEventListener("click", () => showExerciseModal(b.dataset.exInfo)));
+  // swap exercise
+  $$("[data-swap]").forEach(b => b.addEventListener("click", () => {
+    const card = b.closest(".exercise-card");
+    showSwapModal(dayIdx, +card.dataset.idx, b.dataset.swap);
+  }));
   // save a single exercise's sets to history
   $$(".save-ex").forEach(b => b.addEventListener("click", () => {
     const card = b.closest(".exercise-card");
@@ -624,6 +632,74 @@ function showExerciseModal(exId) {
     if (e.target === modal || e.target.classList.contains("modal-close")) modal.remove();
   });
   document.body.appendChild(modal);
+}
+
+// Alternatives that train the same primary muscle group as `exId`.
+// Equipment-matched options are listed first.
+function swapCandidates(exId) {
+  const cur = EXERCISE_BY_ID[exId];
+  if (!cur) return [];
+  const group = primaryGroup(cur);
+  const avail = state.programOpts.equipment || [];
+  return EXERCISES
+    .filter(ex => ex.id !== exId && primaryGroup(ex) === group)
+    .sort((a, b) => {
+      // prefer same equipment availability, then same type (compound/iso), then name
+      const aAvail = !avail.length || avail.includes(a.equipment) ? 0 : 1;
+      const bAvail = !avail.length || avail.includes(b.equipment) ? 0 : 1;
+      if (aAvail !== bAvail) return aAvail - bAvail;
+      const aType = a.type === cur.type ? 0 : 1;
+      const bType = b.type === cur.type ? 0 : 1;
+      if (aType !== bType) return aType - bType;
+      return a.name.localeCompare(b.name);
+    });
+}
+
+function showSwapModal(dayIdx, idx, exId) {
+  const cur = EXERCISE_BY_ID[exId];
+  const cands = swapCandidates(exId);
+  const list = cands.map(ex => `
+    <button class="lib-item" data-pick="${ex.id}">
+      <span>${esc(ex.name)}</span>
+      <span class="tag ${ex.type}">${esc(ex.equipment)}</span>
+    </button>`).join("");
+  const modal = document.createElement("div");
+  modal.className = "modal-backdrop";
+  modal.innerHTML = `
+    <div class="modal">
+      <button class="modal-close">✕</button>
+      <h2>Swap exercise</h2>
+      <p class="muted small">Replacing <strong>${esc(cur.name)}</strong> · same target: ${MUSCLES[primaryGroup(cur)].label}</p>
+      <div class="swap-list">${list || '<p class="muted">No alternatives available.</p>'}</div>
+    </div>`;
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal || e.target.classList.contains("modal-close")) { modal.remove(); return; }
+    const pick = e.target.closest("[data-pick]");
+    if (pick) { applySwap(dayIdx, idx, pick.dataset.pick); modal.remove(); }
+  });
+  document.body.appendChild(modal);
+}
+
+function applySwap(dayIdx, idx, newId) {
+  const ex = EXERCISE_BY_ID[newId];
+  if (!ex || !state.program) return;
+  const day = state.program.days[dayIdx];
+  const old = day.exercises[idx];
+  // keep the planned set count; adopt the new movement's rep range & RIR
+  day.exercises[idx] = {
+    exerciseId: ex.id,
+    sets: old ? old.sets : ex.sets,
+    repRange: ex.repRange.slice(),
+    rir: ex.rir,
+  };
+  // recompute coverage so the dashboard stays accurate
+  state.program.weeklyVolume = computeWeeklyVolume(state.program.days);
+  state.program.coverage = assessCoverage(state.program.weeklyVolume, targets());
+  save();
+  // re-render the workout day
+  $("#workout-body").innerHTML = renderWorkoutDay(dayIdx);
+  wireWorkoutDay(dayIdx);
+  toast(`Swapped to ${ex.name}`);
 }
 
 /* ============================ PROGRESS =================================== */

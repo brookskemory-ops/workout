@@ -140,7 +140,12 @@ h3 { font-size: 1rem; margin: 14px 0 6px; color: var(--accent-2); }
 .ex-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
 .ex-name { font-weight: 700; font-size: 1.05rem; }
 .ex-meta { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
-.info-btn { background: none; border: none; color: var(--cyan); font-size: 1.3rem; cursor: pointer; padding: 0 4px; }
+.ex-btns { display: flex; gap: 6px; flex: 0 0 auto; }
+.icon-btn { background: var(--bg-card-2); border: 1px solid var(--line); color: var(--text); width: 36px; height: 36px; border-radius: 10px; font-size: 1.05rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.icon-btn:active { border-color: var(--accent); }
+.swap-btn { color: var(--accent-2); }
+.info-btn { color: var(--cyan); }
+.swap-list { margin-top: 6px; }
 .last-line { font-size: 0.82rem; color: var(--muted); margin: 8px 0 6px; }
 .suggestion { background: rgba(34,184,207,0.1); border: 1px solid rgba(34,184,207,0.25); color: #9be7f2; border-radius: 10px; padding: 8px 10px; font-size: 0.82rem; margin-bottom: 10px; }
 .suggestion-add-weight { background: rgba(81,207,102,0.12); border-color: rgba(81,207,102,0.3); color: #b6f0c0; }
