@@ -31,8 +31,9 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned
 High-value, self-contained, used every session.
 1. **Exercise swap button** 🚧 — sub any movement mid-workout for another that hits the
    same muscle (equipment-aware). Persists into the program.
-2. **Plate + warm-up calculator** ⏳ — for a target working weight, show the exact plate
-   loadout per side and an auto-generated warm-up ramp (e.g. bar → 50% → 70% → 85%).
+2. **Plate + warm-up calculator** ✅ — for a target working weight, shows the exact plate
+   loadout per side and an auto-generated warm-up ramp (bar → 50% → 70% → 85% → work).
+   Configurable bar weight; unit-aware plate set.
 3. **PR detection + celebrations** ⏳ — auto-detect personal records (top weight, rep PR,
    estimated 1RM) on save and celebrate them; store a PR history.
 4. **Saved meals & one-tap re-log** ⏳ — save frequent meals/recipes; re-log in a tap.

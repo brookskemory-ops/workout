@@ -17,6 +17,7 @@ const DEFAULT_STATE = {
     proteinGoal: null,
     waterGoal: 120,      // oz
     stepGoal: 10000,
+    barWeight: null,     // null = auto (45 lb / 20 kg)
   },
   program: null,
   programOpts: { split: "ppl6", equipment: [] },
@@ -318,6 +319,7 @@ function renderWorkoutDay(dayIdx) {
           <div class="ex-meta">${item.sets} sets · ${item.repRange[0]}–${item.repRange[1]} reps · ${item.rir} RIR</div>
         </div>
         <div class="ex-btns">
+          <button class="icon-btn calc-btn" data-calc="${item.exerciseId}" title="Plates & warm-up">🧮</button>
           <button class="icon-btn swap-btn" data-swap="${item.exerciseId}" title="Swap exercise">⇄</button>
           <button class="icon-btn info-btn" data-ex-info="${item.exerciseId}" title="How to">ⓘ</button>
         </div>
@@ -346,6 +348,13 @@ function wireWorkoutDay(dayIdx) {
   $$("[data-swap]").forEach(b => b.addEventListener("click", () => {
     const card = b.closest(".exercise-card");
     showSwapModal(dayIdx, +card.dataset.idx, b.dataset.swap);
+  }));
+  // plate + warm-up calculator
+  $$("[data-calc]").forEach(b => b.addEventListener("click", () => {
+    const card = b.closest(".exercise-card");
+    // prefill: typed weight on set 1 → suggested weight → last top weight
+    const typed = parseFloat($(".set-weight", card)?.value);
+    showPlateCalc(b.dataset.calc, isNaN(typed) ? null : typed);
   }));
   // save a single exercise's sets to history
   $$(".save-ex").forEach(b => b.addEventListener("click", () => {
@@ -702,6 +711,111 @@ function applySwap(dayIdx, idx, newId) {
   toast(`Swapped to ${ex.name}`);
 }
 
+/* ------------------------- plate + warm-up calculator --------------------- */
+function barWeight() {
+  return state.profile.barWeight || (unit() === "kg" ? 20 : 45);
+}
+function plateSizes() {
+  return unit() === "kg" ? [25, 20, 15, 10, 5, 2.5, 1.25] : [45, 35, 25, 10, 5, 2.5];
+}
+// Decompose one side of the bar into plates (greedy).
+function platesPerSide(target, bar) {
+  const perSide = (target - bar) / 2;
+  if (perSide <= 0) return { perSide: Math.max(0, perSide), plates: [], leftover: 0 };
+  let rem = perSide;
+  const plates = [];
+  for (const s of plateSizes()) {
+    const count = Math.floor(rem / s + 1e-9);
+    if (count > 0) { plates.push({ size: s, count }); rem -= count * s; }
+  }
+  return { perSide, plates, leftover: Math.round(rem * 100) / 100 };
+}
+// Warm-up ramp toward a working weight.
+function warmupSets(work, isBarbell) {
+  const bar = barWeight();
+  const step = unit() === "kg" ? 2.5 : 5;
+  const round = (w) => Math.round(w / step) * step;
+  if (!work || work <= 0) return [];
+  const raw = [];
+  if (isBarbell && work > bar) raw.push({ weight: bar, reps: "8–10", tag: "bar" });
+  raw.push({ weight: round(work * 0.5), reps: 5, tag: "50%" });
+  raw.push({ weight: round(work * 0.7), reps: 3, tag: "70%" });
+  raw.push({ weight: round(work * 0.85), reps: 1, tag: "85%" });
+  // keep only sub-working, ascending, de-duplicated weights
+  const out = [];
+  for (const s of raw) {
+    if (s.weight >= work || s.weight <= 0) continue;
+    if (out.length && s.weight <= out[out.length - 1].weight) continue;
+    out.push(s);
+  }
+  return out;
+}
+
+function calcBodyHTML(ex, weight) {
+  const isBarbell = ex.equipment === "Barbell";
+  const u = unit();
+  let html = "";
+  // warm-up ramp
+  const warmups = warmupSets(weight, isBarbell);
+  if (warmups.length) {
+    html += `<h3>Warm-up ramp</h3><div class="calc-table">`;
+    warmups.forEach((w, i) => {
+      html += `<div class="calc-row"><span class="calc-tag">${w.tag}</span>
+        <span class="calc-w">${w.weight} ${u}</span><span class="calc-x">× ${w.reps}</span></div>`;
+    });
+    html += `<div class="calc-row work"><span class="calc-tag">WORK</span>
+      <span class="calc-w">${weight} ${u}</span><span class="calc-x">× your sets</span></div></div>`;
+  } else {
+    html += `<p class="muted small">Enter a working weight to generate a warm-up ramp.</p>`;
+  }
+  // plate breakdown
+  if (isBarbell && weight) {
+    const { plates, leftover, perSide } = platesPerSide(weight, barWeight());
+    if (perSide <= 0) {
+      html += `<h3>Plates per side</h3><p class="muted small">That's at or below the empty bar (${barWeight()} ${u}).</p>`;
+    } else {
+      const chips = plates.map(p => `<span class="plate-chip">${p.count} × ${p.size}</span>`).join("");
+      html += `<h3>Plates per side <span class="muted small">(bar ${barWeight()} ${u})</span></h3>
+        <div class="plate-row">${chips || '<span class="muted">—</span>'}</div>
+        <div class="muted small">${perSide} ${u} per side${leftover ? ` · ${leftover} ${u} can't be matched with standard plates` : ""}</div>`;
+    }
+  } else if (!isBarbell) {
+    html += `<p class="muted small">Plate math applies to barbell lifts. For ${esc(ex.equipment.toLowerCase())}, just use the warm-up ramp above.</p>`;
+  }
+  return html;
+}
+
+function showPlateCalc(exId, prefill) {
+  const ex = EXERCISE_BY_ID[exId];
+  if (!ex) return;
+  // fall back to progression suggestion / history for the prefill
+  if (prefill == null) {
+    const hist = state.exerciseHistory[exId] || [];
+    const last = hist[hist.length - 1];
+    const sugg = progressionSuggestion(ex, last ? last.sets : null, { jumpMult: jumpMult() });
+    prefill = sugg.suggestWeight ?? (last ? Math.max(...last.sets.map(s => s.weight)) : "");
+  }
+  const modal = document.createElement("div");
+  modal.className = "modal-backdrop";
+  modal.innerHTML = `
+    <div class="modal">
+      <button class="modal-close">✕</button>
+      <h2>Plates & warm-up</h2>
+      <p class="muted small">${esc(ex.name)}</p>
+      <label class="card-label">Working weight (${unit()})</label>
+      <input id="calc-weight" class="input" inputmode="decimal" value="${prefill || ""}" placeholder="e.g. 225" />
+      <div id="calc-body">${calcBodyHTML(ex, parseFloat(prefill) || 0)}</div>
+    </div>`;
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal || e.target.classList.contains("modal-close")) modal.remove();
+  });
+  document.body.appendChild(modal);
+  const input = modal.querySelector("#calc-weight");
+  input.addEventListener("input", () => {
+    modal.querySelector("#calc-body").innerHTML = calcBodyHTML(ex, parseFloat(input.value) || 0);
+  });
+}
+
 /* ============================ PROGRESS =================================== */
 function renderProgress() {
   const bw = state.bodyweightLog;
@@ -870,6 +984,7 @@ function renderSettings() {
         <input id="s-water" class="input" inputmode="numeric" placeholder="Water goal (oz)" value="${p.waterGoal||""}" />
         <input id="s-steps" class="input" inputmode="numeric" placeholder="Step goal" value="${p.stepGoal||""}" />
       </div>
+      <input id="s-bar" class="input" inputmode="decimal" placeholder="Barbell weight (default ${p.unit==='kg'?'20kg':'45lb'})" value="${p.barWeight||""}" />
       <button id="save-profile" class="btn primary block">Save profile</button>
     </div>
 
@@ -932,6 +1047,7 @@ function wireSettings() {
     state.profile.proteinGoal = parseInt($("#s-pro").value) || null;
     state.profile.waterGoal = parseInt($("#s-water").value) || 120;
     state.profile.stepGoal = parseInt($("#s-steps").value) || 10000;
+    state.profile.barWeight = parseFloat($("#s-bar").value) || null;
     save(); toast("Profile saved ✔");
   });
   $("#s-split")?.addEventListener("change", (e) => {

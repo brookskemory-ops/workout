@@ -225,6 +225,17 @@ h3 { font-size: 1rem; margin: 14px 0 6px; color: var(--accent-2); }
 .cues li { margin-bottom: 8px; line-height: 1.45; }
 .nippard-note { background: rgba(255,107,53,0.08); border: 1px solid rgba(255,107,53,0.2); border-radius: 12px; padding: 12px; font-size: 0.9rem; line-height: 1.5; margin-top: 14px; }
 
+/* ------------------------ plate / warm-up calc --------------------------- */
+.calc-table { margin: 4px 0 14px; }
+.calc-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--bg-card-2); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 6px; }
+.calc-row.work { background: rgba(255,107,53,0.12); border-color: rgba(255,107,53,0.3); }
+.calc-tag { flex: 0 0 52px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; color: var(--muted); text-transform: uppercase; }
+.calc-row.work .calc-tag { color: var(--accent-2); }
+.calc-w { flex: 1; font-weight: 800; font-size: 1.1rem; }
+.calc-x { color: var(--muted); font-size: 0.85rem; }
+.plate-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0; }
+.plate-chip { background: var(--accent); color: #1a0e07; font-weight: 800; border-radius: 8px; padding: 8px 12px; font-size: 0.95rem; }
+
 /* ---------------------------- coverage ----------------------------------- */
 .coverage { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
 
