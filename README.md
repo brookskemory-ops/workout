@@ -19,10 +19,10 @@ manual click (then it stays on forever):
 
 1. Go to the repo on GitHub → **Settings** → **Pages**.
 2. Under **Build and deployment → Source**, choose **Deploy from a branch**.
-3. Set the branch to **`claude/fitness-dashboard-workout-library-467mrd`** and the
-   folder to **`/ (root)`**, then **Save**.
+3. Set the branch to **`main`** and the folder to **`/ (root)`**, then **Save**.
 4. Wait ~1 minute. Your app is now live at
-   **`https://brookskemory-ops.github.io/workout/`** and auto-updates on every push.
+   **`https://brookskemory-ops.github.io/workout/`** and auto-updates whenever a
+   roadmap phase merges into `main`.
 
 *(Prefer an Actions-based deploy instead? Set Source to "GitHub Actions" and run the
 included `Deploy to GitHub Pages` workflow from the Actions tab.)*
@@ -91,6 +91,14 @@ icons/                  app icons
 Everything is stored in your browser's **localStorage** on your device. Nothing is sent
 anywhere. Use **Setup → Export** to back up a JSON file, and **Import** to restore it
 (e.g. when moving to a new phone).
+
+## 🌿 Development workflow
+
+- **`main`** — stable, reviewed mainline. GitHub Pages serves this; your installed
+  app updates when work merges here.
+- **`claude/fitness-dashboard-workout-library-467mrd`** — active development branch.
+- Each [roadmap](ROADMAP.md) phase ships as its own **pull request into `main`** so you
+  can review before it goes live.
 
 ## 🛠 Run locally
 
