@@ -8,7 +8,8 @@ const STORE_KEY = "monsterMode.v1";
 const DEFAULT_STATE = {
   profile: {
     name: "",
-    unit: "lb",          // 'lb' | 'kg'
+    unit: "lb",          // 'lb' | 'kg'  (default imperial)
+    heightIn: null,      // height stored in total inches (ft/in entry)
     bodyweight: null,
     goal: "gain",        // 'gain' | 'cut' | 'maintain'
     experience: "advanced", // 'beginner' | 'intermediate' | 'advanced'
@@ -764,10 +765,17 @@ function renderSettings() {
       <div class="macro-inputs">
         <input id="s-bw" class="input" inputmode="decimal" placeholder="Bodyweight" value="${p.bodyweight||""}" />
         <select id="s-unit" class="select">
-          <option value="lb" ${p.unit==="lb"?"selected":""}>lb</option>
-          <option value="kg" ${p.unit==="kg"?"selected":""}>kg</option>
+          <option value="lb" ${p.unit==="lb"?"selected":""}>lb / inches</option>
+          <option value="kg" ${p.unit==="kg"?"selected":""}>kg / cm</option>
         </select>
       </div>
+      ${p.unit === "kg" ? `
+      <input id="s-ht-cm" class="input" inputmode="numeric" placeholder="Height (cm)" value="${p.heightIn ? Math.round(p.heightIn*2.54) : ""}" />
+      ` : `
+      <div class="macro-inputs">
+        <input id="s-ht-ft" class="input" inputmode="numeric" placeholder="Height (ft)" value="${p.heightIn ? Math.floor(p.heightIn/12) : ""}" />
+        <input id="s-ht-in" class="input" inputmode="numeric" placeholder="Height (in)" value="${p.heightIn ? p.heightIn%12 : ""}" />
+      </div>`}
       <select id="s-goal" class="select block">
         <option value="gain" ${p.goal==="gain"?"selected":""}>Goal: Build muscle (surplus)</option>
         <option value="maintain" ${p.goal==="maintain"?"selected":""}>Goal: Maintain / recomp</option>
@@ -834,6 +842,14 @@ function wireSettings() {
     state.profile.name = $("#s-name").value.trim();
     state.profile.bodyweight = parseFloat($("#s-bw").value) || null;
     state.profile.unit = $("#s-unit").value;
+    if (state.profile.unit === "kg") {
+      const cm = parseFloat($("#s-ht-cm")?.value);
+      state.profile.heightIn = isNaN(cm) ? state.profile.heightIn : Math.round(cm / 2.54);
+    } else {
+      const ft = parseInt($("#s-ht-ft")?.value, 10) || 0;
+      const inch = parseInt($("#s-ht-in")?.value, 10) || 0;
+      state.profile.heightIn = (ft || inch) ? ft * 12 + inch : state.profile.heightIn;
+    }
     state.profile.goal = $("#s-goal").value;
     state.profile.experience = $("#s-exp").value;
     state.profile.calorieGoal = parseInt($("#s-cal").value) || null;

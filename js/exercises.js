@@ -569,6 +569,564 @@ const EXERCISES = [
     ],
     nippard: "Anti-movement core training carries over to bracing under squats and deadlifts — strength and aesthetics in one."
   },
+
+  /* ===================================================================
+   * EXPANSION — more credible, influencer-recommended movements
+   * Attributions: Jeff Nippard, TNF/Joel Twinem, Renaissance Periodization
+   * (Mike Israetel), Eric Helms, Jeff Cavaliere (Athlean-X), John Meadows.
+   * =================================================================== */
+
+  /* ---- CHEST ---- */
+  {
+    id: "pec-deck",
+    name: "Machine Pec Deck Fly",
+    primary: ["chest"], secondary: [],
+    equipment: "Machine", type: "isolation", pattern: "fly",
+    sets: 3, repRange: [12, 20], rir: 1,
+    description: "Stable, fixed-path chest fly that isolates the pecs and is easy to push close to failure.",
+    cues: [
+      "Set the seat so the handles sit at mid-chest height.",
+      "Drive the pads together with the chest, hold the squeeze.",
+      "Let the arms travel back for a full stretch each rep."
+    ],
+    nippard: "RP / Israetel favorite: the machine removes stability demands so every rep targets the pecs and you can take it to failure safely."
+  },
+  {
+    id: "low-cable-fly",
+    name: "Low-to-High Cable Fly",
+    primary: ["chest"], secondary: ["frontDelts"],
+    equipment: "Cable", type: "isolation", pattern: "fly",
+    sets: 3, repRange: [12, 20], rir: 1,
+    description: "Cables set low, hands sweep up and in — biases the upper chest in the lengthened position.",
+    cues: [
+      "Start with cables at the lowest pin, soft elbow bend held constant.",
+      "Sweep the hands up toward eye level, squeeze at the top.",
+      "Resist on the way down for a deep upper-chest stretch."
+    ],
+    nippard: "Nippard programs upward fly angles to bias the often-lagging upper chest with constant cable tension."
+  },
+  {
+    id: "smith-incline",
+    name: "Smith Machine Incline Press",
+    primary: ["chest"], secondary: ["frontDelts", "triceps"],
+    equipment: "Machine", type: "compound", pattern: "incline-push",
+    sets: 3, repRange: [8, 12], rir: 1,
+    description: "Fixed bar path lets you overload the upper chest with no balance demand — easy to progress for months.",
+    cues: [
+      "Bench at ~30°, bar touches the upper chest.",
+      "Keep the shoulder blades retracted and down.",
+      "Press up and slightly back along the fixed path."
+    ],
+    nippard: "TNF / Joel Twinem leans on stable, loadable machine pressing so progressive overload is clean and repeatable week to week."
+  },
+
+  /* ---- BACK ---- */
+  {
+    id: "tbar-row",
+    name: "T-Bar Row",
+    primary: ["back"], secondary: ["lats", "biceps", "rearDelts"],
+    equipment: "Barbell", type: "compound", pattern: "horizontal-pull",
+    sets: 3, repRange: [8, 12], rir: 2,
+    description: "Chest-supported or landmine row that loads the mid-back hard with a strong, stable line of pull.",
+    cues: [
+      "Hinge over, neutral spine, drive elbows back and up.",
+      "Pull to the lower chest, squeeze the shoulder blades together.",
+      "Control the stretch at the bottom — don't bounce off the floor."
+    ],
+    nippard: "TNF's modified T-bar row is a signature movement: heavy, stable mid-back loading with low fatigue and easy progression."
+  },
+  {
+    id: "db-row",
+    name: "Single-Arm Dumbbell Row",
+    primary: ["back"], secondary: ["lats", "biceps"],
+    equipment: "Dumbbells", type: "compound", pattern: "horizontal-pull",
+    sets: 3, repRange: [8, 12], rir: 1,
+    description: "Unilateral row with a long range of motion and a big lat stretch at the bottom.",
+    cues: [
+      "Brace a hand and knee on a bench, flat back.",
+      "Let the dumbbell hang and stretch, then row to the hip.",
+      "Drive the elbow back, don't rotate the torso to cheat."
+    ],
+    nippard: "Lets each side work independently through a full ROM — great for fixing left/right imbalances."
+  },
+  {
+    id: "meadows-row",
+    name: "Meadows Row",
+    primary: ["back"], secondary: ["lats", "rearDelts", "biceps"],
+    equipment: "Barbell", type: "compound", pattern: "horizontal-pull",
+    sets: 3, repRange: [10, 15], rir: 1,
+    description: "Landmine row from a staggered stance that hammers the upper-back and lats with a deep stretch.",
+    cues: [
+      "Stand side-on to a landmine, grip the sleeve end.",
+      "Let the weight pull the shoulder forward, then row up and back.",
+      "Keep the torso braced; pull with the elbow, not the bicep."
+    ],
+    nippard: "Created by the late John Meadows — a cult-favorite for upper-back detail and a savage stretch under load."
+  },
+  {
+    id: "chin-up",
+    name: "Chin-Up (Supinated)",
+    primary: ["lats"], secondary: ["biceps", "back"],
+    equipment: "Bodyweight", type: "compound", pattern: "vertical-pull",
+    sets: 3, repRange: [6, 12], rir: 2,
+    description: "Underhand grip vertical pull that adds serious biceps involvement alongside lat work.",
+    cues: [
+      "Shoulder-width supinated grip, start from a dead hang.",
+      "Pull the chest to the bar, drive the elbows down.",
+      "Lower under control to a full stretch; add load past 12 reps."
+    ],
+    nippard: "Nippard notes chin-ups train the lats AND biceps heavily — an efficient compound for arm-day carryover."
+  },
+  {
+    id: "cable-pullover",
+    name: "Cable Lat Pullover",
+    primary: ["lats"], secondary: ["back"],
+    equipment: "Cable", type: "isolation", pattern: "lat-isolation",
+    sets: 3, repRange: [12, 20], rir: 1,
+    description: "Shoulder-extension isolation that targets the lats without biceps or grip limiting you.",
+    cues: [
+      "Face a high pulley, slight forward lean, fixed elbow bend.",
+      "Pull the bar/rope down to the hips using the lats.",
+      "Feel the stretch overhead and the squeeze at the bottom."
+    ],
+    nippard: "An RP-style lat isolation — perfect for adding lat volume when grip and biceps are already fatigued."
+  },
+  {
+    id: "hammer-iso-row",
+    name: "Hammer Strength Iso-Row",
+    primary: ["back"], secondary: ["lats", "biceps"],
+    equipment: "Machine", type: "compound", pattern: "horizontal-pull",
+    sets: 3, repRange: [10, 15], rir: 1,
+    description: "Plate-loaded machine row with a chest pad — overload the back with zero lower-back fatigue.",
+    cues: [
+      "Chest on the pad, run each arm through a full stretch and contraction.",
+      "Drive the elbow back, pause at peak contraction.",
+      "Can be done one arm at a time for extra ROM."
+    ],
+    nippard: "Stable, loadable, low-fatigue — exactly the TNF profile for a back movement you can progress for months."
+  },
+  {
+    id: "db-shrug",
+    name: "Dumbbell Shrug",
+    primary: ["back"], secondary: [],
+    equipment: "Dumbbells", type: "isolation", pattern: "shrug",
+    sets: 3, repRange: [12, 20], rir: 1,
+    description: "Direct upper-trap work for a thicker, more complete back and yoke.",
+    cues: [
+      "Let the shoulders hang, then shrug straight up — don't roll.",
+      "Pause and squeeze the traps at the top.",
+      "Lower under control for a full stretch."
+    ],
+    nippard: "Traps respond to direct loading and a pause at the top. A small dose adds noticeable upper-back thickness."
+  },
+
+  /* ---- SHOULDERS ---- */
+  {
+    id: "machine-shoulder-press",
+    name: "Machine Shoulder Press",
+    primary: ["frontDelts"], secondary: ["sideDelts", "triceps"],
+    equipment: "Machine", type: "compound", pattern: "vertical-push",
+    sets: 3, repRange: [8, 12], rir: 1,
+    description: "Stable overhead press you can push close to failure without worrying about balance.",
+    cues: [
+      "Seat set so handles start at shoulder height.",
+      "Press up without shrugging, control the descent.",
+      "Stop just short of locking out to keep tension on the delts."
+    ],
+    nippard: "TNF / RP staple: the machine path means clean, repeatable progression on vertical pressing."
+  },
+  {
+    id: "arnold-press",
+    name: "Arnold Press",
+    primary: ["frontDelts"], secondary: ["sideDelts"],
+    equipment: "Dumbbells", type: "compound", pattern: "vertical-push",
+    sets: 3, repRange: [8, 12], rir: 1,
+    description: "Rotating dumbbell press that adds front-to-side delt involvement through a long ROM.",
+    cues: [
+      "Start palms facing you at chin height.",
+      "Rotate the palms outward as you press overhead.",
+      "Reverse the rotation on the way down."
+    ],
+    nippard: "The rotation increases time under tension across the front and side delts in one movement."
+  },
+  {
+    id: "leaning-lateral",
+    name: "Leaning Cable Lateral Raise",
+    primary: ["sideDelts"], secondary: [],
+    equipment: "Cable", type: "isolation", pattern: "lateral-raise",
+    sets: 3, repRange: [12, 20], rir: 1,
+    description: "Leaning away from a low cable lengthens the side delt and loads it from the very bottom.",
+    cues: [
+      "Hold an upright, lean away from the pulley holding the post.",
+      "Raise the arm out to shoulder height, lead with the elbow.",
+      "Slow negative — feel the stretch at the bottom."
+    ],
+    nippard: "The 'Lu raise' style lean keeps tension on the side delt through the lengthened range most lifters skip."
+  },
+  {
+    id: "db-rear-fly",
+    name: "Bent-Over Dumbbell Reverse Fly",
+    primary: ["rearDelts"], secondary: ["back"],
+    equipment: "Dumbbells", type: "isolation", pattern: "rear-fly",
+    sets: 3, repRange: [15, 20], rir: 1,
+    description: "Free-weight rear-delt isolation for shoulder health and a complete 3D look.",
+    cues: [
+      "Hinge over, slight elbow bend held constant.",
+      "Raise the dumbbells out and back, lead with the pinkies.",
+      "Squeeze the rear delts; don't let the traps take over."
+    ],
+    nippard: "High reps and a strict tempo are key — rear delts respond best to the contraction, not heavy weight."
+  },
+  {
+    id: "cable-upright-row",
+    name: "Cable Upright Row",
+    primary: ["sideDelts"], secondary: [],
+    equipment: "Cable", type: "isolation", pattern: "lateral-raise",
+    sets: 3, repRange: [12, 15], rir: 1,
+    description: "Wide-grip upright row that biases the side delts and upper traps.",
+    cues: [
+      "Use a rope or wide bar on a low pulley.",
+      "Pull up to chest height, elbows leading and staying high.",
+      "Keep it smooth; stop if it pinches the shoulder."
+    ],
+    nippard: "A wide grip keeps the emphasis on the side delts rather than the front. Pull to chest height, not the chin."
+  },
+
+  /* ---- BICEPS ---- */
+  {
+    id: "bayesian-curl",
+    name: "Bayesian Cable Curl",
+    primary: ["biceps"], secondary: [],
+    equipment: "Cable", type: "isolation", pattern: "curl",
+    sets: 3, repRange: [10, 15], rir: 1,
+    description: "Single-arm cable curl with the arm behind the body — maximal biceps stretch under constant tension.",
+    cues: [
+      "Face away from a low pulley, arm trailing behind you.",
+      "Curl without letting the elbow drift forward.",
+      "Emphasize the deep stretch at the bottom of each rep."
+    ],
+    nippard: "A Nippard favorite: the behind-the-body position trains the biceps long head in a deep stretch with cable tension throughout."
+  },
+  {
+    id: "preacher-curl",
+    name: "Preacher Curl",
+    primary: ["biceps"], secondary: [],
+    equipment: "Machine", type: "isolation", pattern: "curl",
+    sets: 3, repRange: [8, 12], rir: 1,
+    description: "Arm fixed on a pad removes momentum and overloads the lower biceps and the bottom stretch.",
+    cues: [
+      "Upper arm flat on the pad, don't let the elbow lift.",
+      "Curl up, squeeze, then lower all the way to a stretch.",
+      "Control the eccentric — the stretched bottom is the money zone."
+    ],
+    nippard: "Great for the stretched position and for taking momentum out of curling. Machine or EZ-bar both work."
+  },
+  {
+    id: "cable-curl",
+    name: "Cable Biceps Curl",
+    primary: ["biceps"], secondary: [],
+    equipment: "Cable", type: "isolation", pattern: "curl",
+    sets: 3, repRange: [10, 15], rir: 1,
+    description: "Constant-tension curl that keeps the biceps loaded at the top where dumbbells go light.",
+    cues: [
+      "Low pulley, elbows pinned to the sides.",
+      "Curl up and squeeze hard at the top.",
+      "Resist the cable on the way down."
+    ],
+    nippard: "Cables maintain tension through the full curl — a reliable progressable isolation."
+  },
+  {
+    id: "concentration-curl",
+    name: "Concentration Curl",
+    primary: ["biceps"], secondary: [],
+    equipment: "Dumbbells", type: "isolation", pattern: "curl",
+    sets: 3, repRange: [10, 15], rir: 1,
+    description: "Seated, braced single-arm curl that maximizes the peak contraction and mind-muscle connection.",
+    cues: [
+      "Elbow braced against the inner thigh.",
+      "Curl up slowly, squeeze the peak, lower with control.",
+      "No swinging — the brace forces strict form."
+    ],
+    nippard: "EMG studies often show high biceps activation here. Good as a focused finisher for the peak."
+  },
+  {
+    id: "reverse-curl",
+    name: "Reverse EZ-Bar Curl",
+    primary: ["biceps"], secondary: ["forearms"],
+    equipment: "Barbell", type: "isolation", pattern: "curl",
+    sets: 3, repRange: [10, 15], rir: 1,
+    description: "Pronated (overhand) curl that targets the brachioradialis and brachialis for thicker arms.",
+    cues: [
+      "Overhand grip on an EZ bar, elbows pinned.",
+      "Curl up keeping the wrists firm and straight.",
+      "Lower under control."
+    ],
+    nippard: "Builds the forearm and the muscle under the biceps, adding overall arm thickness most people neglect."
+  },
+
+  /* ---- TRICEPS ---- */
+  {
+    id: "skull-crusher",
+    name: "EZ-Bar Skull Crusher",
+    primary: ["triceps"], secondary: [],
+    equipment: "Barbell", type: "isolation", pattern: "extension",
+    sets: 3, repRange: [8, 12], rir: 1,
+    description: "Lying extension that loads the triceps with a strong stretch — especially the long head.",
+    cues: [
+      "Lower the bar to the forehead or just behind the head.",
+      "Keep the elbows from flaring out.",
+      "Extend without locking out hard; feel the stretch at the bottom."
+    ],
+    nippard: "Lowering behind the head increases the long-head stretch. A classic mass builder for the triceps."
+  },
+  {
+    id: "db-overhead-ext",
+    name: "Dumbbell Overhead Triceps Extension",
+    primary: ["triceps"], secondary: [],
+    equipment: "Dumbbells", type: "isolation", pattern: "extension",
+    sets: 3, repRange: [10, 15], rir: 1,
+    description: "Single dumbbell held overhead with both hands — deep long-head stretch, no cable needed.",
+    cues: [
+      "Hold one dumbbell overhead, elbows pointed forward.",
+      "Lower behind the head for a deep stretch.",
+      "Extend fully, keep the elbows tucked."
+    ],
+    nippard: "The overhead position is essential for the long head. A great option when cables are busy."
+  },
+  {
+    id: "cable-kickback",
+    name: "Single-Arm Cable Kickback",
+    primary: ["triceps"], secondary: [],
+    equipment: "Cable", type: "isolation", pattern: "extension",
+    sets: 3, repRange: [12, 20], rir: 1,
+    description: "Constant-tension isolation that peaks the triceps in the fully-shortened position.",
+    cues: [
+      "Hinge slightly, upper arm parallel to the floor and fixed.",
+      "Extend the elbow fully, squeeze the triceps at lockout.",
+      "Control the return; high reps work best here."
+    ],
+    nippard: "Cavaliere (Athlean-X) likes loaded kickbacks for a hard peak contraction — pairs well with an overhead stretch movement."
+  },
+
+  /* ---- QUADS ---- */
+  {
+    id: "front-squat",
+    name: "Front Squat",
+    primary: ["quads"], secondary: ["glutes", "abs"],
+    equipment: "Barbell", type: "compound", pattern: "squat",
+    sets: 3, repRange: [5, 8], rir: 2,
+    description: "Bar racked on the front delts keeps the torso upright, shifting emphasis onto the quads.",
+    cues: [
+      "Elbows high, bar resting on the front delts (not the hands).",
+      "Sit straight down, knees forward, deep as mobility allows.",
+      "Stay upright and braced — chest tall the whole rep."
+    ],
+    nippard: "More quad-dominant and knee-friendly torso angle than a back squat for many lifters."
+  },
+  {
+    id: "smith-squat",
+    name: "Smith Machine Squat",
+    primary: ["quads"], secondary: ["glutes"],
+    equipment: "Machine", type: "compound", pattern: "squat",
+    sets: 3, repRange: [8, 12], rir: 1,
+    description: "Fixed bar path lets you place the feet forward and isolate the quads with no balance demand.",
+    cues: [
+      "Feet slightly forward of the bar to bias the quads.",
+      "Descend deep, knees tracking over the toes.",
+      "Drive through the whole foot; great for chasing failure safely."
+    ],
+    nippard: "TNF / RP option to load the quads heavily and progress cleanly without stability being the limiter."
+  },
+  {
+    id: "walking-lunge",
+    name: "Walking Lunge",
+    primary: ["quads"], secondary: ["glutes", "hamstrings"],
+    equipment: "Dumbbells", type: "compound", pattern: "lunge",
+    sets: 3, repRange: [10, 12], rir: 1,
+    description: "Unilateral builder that stretches the quads and glutes under load with a balance challenge.",
+    cues: [
+      "Long stride, drop the back knee toward the floor.",
+      "Drive through the front heel to step into the next lunge.",
+      "Stay tall; let the legs do the work."
+    ],
+    nippard: "Excellent for quad and glute hypertrophy plus single-leg balance — count reps per leg."
+  },
+  {
+    id: "goblet-squat",
+    name: "Goblet Squat",
+    primary: ["quads"], secondary: ["glutes"],
+    equipment: "Dumbbells", type: "compound", pattern: "squat",
+    sets: 3, repRange: [10, 15], rir: 1,
+    description: "Beginner-friendly squat holding a dumbbell at the chest — teaches depth and an upright torso.",
+    cues: [
+      "Hold a dumbbell vertically against the chest.",
+      "Squat between the knees, elbows inside the thighs at the bottom.",
+      "Keep the chest up and heels down."
+    ],
+    nippard: "A great entry point to squatting and a solid higher-rep quad movement at any level."
+  },
+  {
+    id: "sissy-squat",
+    name: "Sissy Squat",
+    primary: ["quads"], secondary: [],
+    equipment: "Bodyweight", type: "isolation", pattern: "knee-extension",
+    sets: 3, repRange: [10, 15], rir: 1,
+    description: "Knees travel far forward while the torso leans back — an intense quad (rectus femoris) stretch.",
+    cues: [
+      "Hold a support, rise onto the toes.",
+      "Lean back and drive the knees forward, lowering the torso.",
+      "Feel the deep quad stretch, then extend back up."
+    ],
+    nippard: "CBum and others use sissy squats for the rectus femoris stretch that regular squats can't fully reach. Add weight to progress."
+  },
+
+  /* ---- HAMSTRINGS ---- */
+  {
+    id: "nordic-curl",
+    name: "Nordic Hamstring Curl",
+    primary: ["hamstrings"], secondary: [],
+    equipment: "Bodyweight", type: "isolation", pattern: "knee-flexion",
+    sets: 3, repRange: [5, 10], rir: 1,
+    description: "Bodyweight knee-flexion with a brutal eccentric — one of the best hamstring builders and injury-preventers.",
+    cues: [
+      "Anchor the ankles, body straight from knees to head.",
+      "Lower as slowly as possible, fighting all the way down.",
+      "Push off the floor to assist back up if needed."
+    ],
+    nippard: "Athlean-X and the research both love Nordics — the overloaded eccentric builds hamstrings and cuts injury risk."
+  },
+  {
+    id: "seated-leg-curl",
+    name: "Seated Leg Curl",
+    primary: ["hamstrings"], secondary: ["calves"],
+    equipment: "Machine", type: "isolation", pattern: "knee-flexion",
+    sets: 3, repRange: [10, 15], rir: 1,
+    description: "Hip-flexed position puts the hamstrings on a deeper stretch — slightly better for growth than lying curls.",
+    cues: [
+      "Pad just above the heels, thighs locked down.",
+      "Curl fully under the seat, squeeze, control the return.",
+      "Let the hamstrings stretch fully at the top of the movement."
+    ],
+    nippard: "Nippard highlights the seated curl: the lengthened-position emphasis tends to edge out the lying version for hypertrophy."
+  },
+  {
+    id: "good-morning",
+    name: "Good Morning",
+    primary: ["hamstrings"], secondary: ["glutes", "back"],
+    equipment: "Barbell", type: "compound", pattern: "hinge",
+    sets: 3, repRange: [8, 12], rir: 2,
+    description: "Bar on the back hip-hinge that loads the hamstrings and posterior chain through a big stretch.",
+    cues: [
+      "Soft knees, push the hips back, neutral spine.",
+      "Hinge until you feel a strong hamstring stretch.",
+      "Drive the hips forward to stand; keep the bar path vertical."
+    ],
+    nippard: "A loadable hinge variation for posterior-chain strength. Start light — technique and bracing are everything."
+  },
+  {
+    id: "cable-pullthrough",
+    name: "Cable Pull-Through",
+    primary: ["glutes"], secondary: ["hamstrings"],
+    equipment: "Cable", type: "compound", pattern: "hinge",
+    sets: 3, repRange: [12, 15], rir: 1,
+    description: "Hip-hinge against a cable that trains the glutes and hamstrings with low spinal loading.",
+    cues: [
+      "Face away from a low pulley, rope between the legs.",
+      "Hinge at the hips, let the rope pull you into a stretch.",
+      "Snap the hips forward and squeeze the glutes at lockout."
+    ],
+    nippard: "A joint-friendly way to train the hip hinge and glutes when you want the stimulus without heavy axial load."
+  },
+
+  /* ---- GLUTES ---- */
+  {
+    id: "glute-kickback",
+    name: "Cable Glute Kickback",
+    primary: ["glutes"], secondary: ["hamstrings"],
+    equipment: "Cable", type: "isolation", pattern: "hinge",
+    sets: 3, repRange: [12, 20], rir: 1,
+    description: "Single-leg hip extension that isolates the glute with constant cable tension.",
+    cues: [
+      "Ankle strap on a low pulley, slight forward lean.",
+      "Drive the leg back and up using the glute, not the lower back.",
+      "Squeeze at full extension, control the return."
+    ],
+    nippard: "Direct glute isolation to add volume and target the glute in its shortened, fully-contracted position."
+  },
+  {
+    id: "step-up",
+    name: "Dumbbell Step-Up",
+    primary: ["glutes"], secondary: ["quads", "hamstrings"],
+    equipment: "Dumbbells", type: "compound", pattern: "lunge",
+    sets: 3, repRange: [10, 12], rir: 1,
+    description: "Single-leg step onto a box that loads the glutes and quads with a long range of motion.",
+    cues: [
+      "Box at roughly knee height, full foot on top.",
+      "Drive through the top heel, minimize push from the bottom leg.",
+      "Control the descent; count reps per leg."
+    ],
+    nippard: "A higher box biases the glutes. Great unilateral builder that also trains balance and control."
+  },
+  {
+    id: "hip-abduction",
+    name: "Hip Abduction Machine",
+    primary: ["glutes"], secondary: [],
+    equipment: "Machine", type: "isolation", pattern: "glute-iso",
+    sets: 3, repRange: [15, 20], rir: 1,
+    description: "Targets the gluteus medius (upper/side glute) for that rounded, capped hip look.",
+    cues: [
+      "Push the knees outward against the pads.",
+      "Lean forward slightly to bias the upper glute.",
+      "Pause at full abduction, control the return — high reps."
+    ],
+    nippard: "The glute medius is hard to hit with compounds. Direct abduction work rounds out the side-glute and improves hip stability."
+  },
+
+  /* ---- CALVES ---- */
+  {
+    id: "leg-press-calf",
+    name: "Leg Press Calf Raise",
+    primary: ["calves"], secondary: [],
+    equipment: "Machine", type: "isolation", pattern: "calf",
+    sets: 3, repRange: [12, 20], rir: 1,
+    description: "Calf raise on the leg press lets you load heavy with a controllable deep stretch.",
+    cues: [
+      "Balls of the feet on the bottom edge of the platform.",
+      "Let the heels drop for a full stretch, then press to full plantarflexion.",
+      "Pause at both ends — no bouncing."
+    ],
+    nippard: "Heavy, deep, paused reps. The leg press makes it easy to load and to control the stretch the calves need."
+  },
+
+  /* ---- ABS / CORE ---- */
+  {
+    id: "pallof-press",
+    name: "Pallof Press",
+    primary: ["abs"], secondary: [],
+    equipment: "Cable", type: "isolation", pattern: "core",
+    sets: 3, repRange: [12, 15], rir: 1,
+    description: "Anti-rotation core exercise that builds bracing strength and trains the obliques.",
+    cues: [
+      "Stand side-on to a cable at chest height, hands at the sternum.",
+      "Press straight out and resist the cable pulling you into rotation.",
+      "Hold briefly at full extension, return with control. Reps per side."
+    ],
+    nippard: "Anti-rotation training builds a stable, strong midsection that carries over to every compound lift."
+  },
+  {
+    id: "weighted-decline-situp",
+    name: "Weighted Decline Sit-Up",
+    primary: ["abs"], secondary: [],
+    equipment: "Bodyweight", type: "isolation", pattern: "core",
+    sets: 3, repRange: [12, 20], rir: 1,
+    description: "Decline sit-up holding a plate — loads the abs through a long range you can progressively overload.",
+    cues: [
+      "Hook the feet, hold a plate on the chest.",
+      "Curl up by flexing the spine, not just hinging at the hips.",
+      "Lower slowly for a stretch; add plate weight to progress."
+    ],
+    nippard: "Abs grow from progressive load like any muscle — holding a plate turns sit-ups into a real, trackable hypertrophy lift."
+  },
 ];
 
 // Experience scales the weekly volume window and how big each overload jump is.
