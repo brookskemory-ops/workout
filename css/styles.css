@@ -239,6 +239,21 @@ h3 { font-size: 1rem; margin: 14px 0 6px; color: var(--accent-2); }
 /* ---------------------------- coverage ----------------------------------- */
 .coverage { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
 
+/* ---------------------------- PR celebration ----------------------------- */
+.pr-backdrop { align-items: center; }
+.pr-modal { text-align: center; border-radius: 20px; max-width: 420px; margin: 0 16px; animation: pop .3s ease; }
+@keyframes pop { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+.pr-trophy { font-size: 3.4rem; line-height: 1; animation: bounce 1s ease infinite; }
+@keyframes bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+.pr-modal h2 { margin: 8px 0 4px; }
+.pr-list { margin: 14px 0; }
+.pr-line { display: flex; justify-content: space-between; gap: 10px; align-items: center; background: var(--bg-card-2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; text-align: left; font-size: 0.92rem; }
+.pr-ex { font-weight: 700; }
+
+.confetti { position: fixed; inset: 0; pointer-events: none; z-index: 300; overflow: hidden; }
+.confetti i { position: absolute; top: -20px; width: 9px; height: 14px; border-radius: 2px; opacity: 0.9; animation-name: fall; animation-timing-function: linear; animation-fill-mode: forwards; }
+@keyframes fall { to { transform: translateY(105vh) rotate(720deg); opacity: 1; } }
+
 /* ------------------------------ toast ------------------------------------ */
 #toast { position: fixed; bottom: calc(var(--nav-h) + var(--safe-b) + 20px); left: 50%; transform: translateX(-50%) translateY(20px); background: #fff; color: #111; padding: 11px 18px; border-radius: 24px; font-size: 0.9rem; font-weight: 700; opacity: 0; pointer-events: none; transition: all .25s; z-index: 200; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }

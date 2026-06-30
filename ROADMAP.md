@@ -34,8 +34,10 @@ High-value, self-contained, used every session.
 2. **Plate + warm-up calculator** ✅ — for a target working weight, shows the exact plate
    loadout per side and an auto-generated warm-up ramp (bar → 50% → 70% → 85% → work).
    Configurable bar weight; unit-aware plate set.
-3. **PR detection + celebrations** ⏳ — auto-detect personal records (top weight, rep PR,
-   estimated 1RM) on save and celebrate them; store a PR history.
+3. **PR detection + celebrations** ✅ — auto-detects personal records (top weight and
+   estimated 1RM via Epley) when you log sets, fires a confetti celebration (with haptic
+   buzz), and stores a PR history shown on the Dashboard and Progress tabs. The first-ever
+   log of a lift sets a baseline without a false celebration.
 4. **Saved meals & one-tap re-log** ⏳ — save frequent meals/recipes; re-log in a tap.
 
 ## ⏳ Phase 2 — Progress & motivation

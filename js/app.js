@@ -23,6 +23,8 @@ const DEFAULT_STATE = {
   programOpts: { split: "ppl6", equipment: [] },
   sessions: [],          // completed workout sessions
   exerciseHistory: {},   // exerciseId -> [{date, sets:[{weight,reps}]}]
+  prs: {},               // exerciseId -> { bestWeight, bestE1RM }
+  prLog: [],             // [{date, exerciseId, type:'weight'|'e1rm', value, weight, reps}]
   foodLog: {},           // 'YYYY-MM-DD' -> [{name,kcal,protein,carbs,fat,time}]
   bodyweightLog: [],     // [{date, weight}]
   measurements: [],      // [{date, waist, arms, chest, thighs}]
@@ -170,6 +172,7 @@ function renderDashboard() {
       </div>
     </div>
     ${renderActivityCard()}
+    ${renderRecentPRs()}
     ${state.program ? renderVolumeSnapshot() : ""}
     <div class="card">
       <div class="card-label">Today's principle</div>
@@ -234,6 +237,28 @@ function renderVolumeSnapshot() {
     <div class="card-label">This week's volume (sets logged)</div>
     ${rows}
     <div class="muted small">Targets scaled for <strong>${esc((EXPERIENCE[state.profile.experience]||EXPERIENCE.intermediate).label)}</strong> · Nippard's 10–20 hard sets/muscle, 2×+/week.</div>
+  </div>`;
+}
+
+function prLineHTML(ev) {
+  const ex = EXERCISE_BY_ID[ev.exerciseId];
+  const what = ev.type === "e1rm"
+    ? `est. 1RM ${ev.value} ${unit()} (${ev.weight}×${ev.reps})`
+    : `top weight ${ev.value} ${unit()} (×${ev.reps})`;
+  return `<div class="food-item">
+    <div><div class="food-name">🏆 ${esc(ex ? ex.name : ev.exerciseId)}</div>
+      <div class="muted small">${what}</div></div>
+    <div class="muted small">${fmtDate(ev.date)}</div>
+  </div>`;
+}
+
+function renderRecentPRs() {
+  const log = (state.prLog || []);
+  if (!log.length) return "";
+  const recent = log.slice(-3).reverse();
+  return `<div class="card">
+    <div class="card-label">Recent PRs 🏆</div>
+    ${recent.map(prLineHTML).join("")}
   </div>`;
 }
 
@@ -374,13 +399,46 @@ function readSetsFromCard(card) {
   }).filter(Boolean);
 }
 
+// Commit a set of sets to history and detect any new personal records.
+// Returns an array of PR events (empty if none / first-time baseline).
+function commitSets(exId, sets) {
+  if (!state.exerciseHistory[exId]) state.exerciseHistory[exId] = [];
+  state.exerciseHistory[exId].push({ date: new Date().toISOString(), sets });
+  return detectPRs(exId, sets);
+}
+
+function detectPRs(exId, sets) {
+  state.prs = state.prs || {};
+  state.prLog = state.prLog || [];
+  const rec = state.prs[exId] || { bestWeight: 0, bestE1RM: 0 };
+  const hadHistory = rec.bestE1RM > 0;     // don't celebrate the very first log
+  let bestWeight = rec.bestWeight, bestE1RM = rec.bestE1RM, e1rmSet = null, wSet = null;
+  sets.forEach(s => {
+    if (s.weight == null || s.reps == null) return;
+    const e1 = s.weight * (1 + s.reps / 30); // Epley estimate
+    if (e1 > bestE1RM) { bestE1RM = e1; e1rmSet = s; }
+    if (s.weight > bestWeight) { bestWeight = s.weight; wSet = s; }
+  });
+  const events = [];
+  if (hadHistory && e1rmSet && bestE1RM > rec.bestE1RM + 0.01) {
+    events.push({ type: "e1rm", exerciseId: exId, value: Math.round(bestE1RM), weight: e1rmSet.weight, reps: e1rmSet.reps });
+  }
+  if (hadHistory && wSet && bestWeight > rec.bestWeight + 0.01) {
+    events.push({ type: "weight", exerciseId: exId, value: bestWeight, weight: wSet.weight, reps: wSet.reps });
+  }
+  state.prs[exId] = { bestWeight, bestE1RM };
+  const now = new Date().toISOString();
+  events.forEach(ev => state.prLog.push({ ...ev, date: now }));
+  return events;
+}
+
 function saveExerciseSets(card) {
   const exId = card.dataset.ex;
   const sets = readSetsFromCard(card);
   if (!sets.length) return false;
-  if (!state.exerciseHistory[exId]) state.exerciseHistory[exId] = [];
-  state.exerciseHistory[exId].push({ date: new Date().toISOString(), sets });
+  const prs = commitSets(exId, sets);
   save();
+  if (prs.length) celebratePRs(prs);
   return true;
 }
 
@@ -388,24 +446,26 @@ function finishWorkout(dayIdx) {
   const day = state.program.days[dayIdx];
   const entries = [];
   let any = false;
+  const allPRs = [];
   $$(".exercise-card").forEach(card => {
     const sets = readSetsFromCard(card);
     if (sets.length) {
       any = true;
       const exId = card.dataset.ex;
-      // avoid double-saving if user already hit "save" — only save if last entry isn't from this minute
+      // avoid double-committing if user already hit "save" for these exact sets this minute
       const hist = state.exerciseHistory[exId] || (state.exerciseHistory[exId] = []);
       const last = hist[hist.length - 1];
       const justSaved = last && (Date.now() - new Date(last.date).getTime() < 60000)
         && JSON.stringify(last.sets) === JSON.stringify(sets);
-      if (!justSaved) hist.push({ date: new Date().toISOString(), sets });
+      if (!justSaved) allPRs.push(...commitSets(exId, sets));
       entries.push({ exerciseId: exId, sets });
     }
   });
   if (!any) { toast("Log at least one set first"); return; }
   state.sessions.push({ date: new Date().toISOString(), dayName: day.name, dayIdx, entries });
   save();
-  toast("Workout logged! 🔥");
+  if (allPRs.length) celebratePRs(allPRs);
+  else toast("Workout logged! 🔥");
   navigate("dashboard");
 }
 
@@ -816,6 +876,50 @@ function showPlateCalc(exId, prefill) {
   });
 }
 
+/* ------------------------- PR celebrations -------------------------------- */
+function celebratePRs(events) {
+  try { navigator.vibrate && navigator.vibrate([60, 40, 120]); } catch {}
+  launchConfetti();
+  const rows = events.map(ev => {
+    const ex = EXERCISE_BY_ID[ev.exerciseId];
+    const label = ev.type === "e1rm"
+      ? `Est. 1RM <strong>${ev.value} ${unit()}</strong> <span class="muted">(${ev.weight}×${ev.reps})</span>`
+      : `Top weight <strong>${ev.value} ${unit()}</strong> <span class="muted">(×${ev.reps})</span>`;
+    return `<div class="pr-line"><span class="pr-ex">${esc(ex ? ex.name : ev.exerciseId)}</span>${label}</div>`;
+  }).join("");
+  const modal = document.createElement("div");
+  modal.className = "modal-backdrop pr-backdrop";
+  modal.innerHTML = `
+    <div class="modal pr-modal">
+      <div class="pr-trophy">🏆</div>
+      <h2>New PR${events.length > 1 ? "s" : ""}!</h2>
+      <p class="muted">You beat your best. That's progressive overload. 💪</p>
+      <div class="pr-list">${rows}</div>
+      <button class="btn primary block pr-go">Let's go 🔥</button>
+    </div>`;
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal || e.target.classList.contains("pr-go")) modal.remove();
+  });
+  document.body.appendChild(modal);
+}
+
+function launchConfetti() {
+  const colors = ["#ff6b35", "#ff9f43", "#22b8cf", "#51cf66", "#f783ac", "#fcc419"];
+  const wrap = document.createElement("div");
+  wrap.className = "confetti";
+  for (let i = 0; i < 60; i++) {
+    const p = document.createElement("i");
+    p.style.left = Math.random() * 100 + "vw";
+    p.style.background = colors[i % colors.length];
+    p.style.animationDelay = (Math.random() * 0.4) + "s";
+    p.style.animationDuration = (1.6 + Math.random() * 1.2) + "s";
+    p.style.transform = `rotate(${Math.random() * 360}deg)`;
+    wrap.appendChild(p);
+  }
+  document.body.appendChild(wrap);
+  setTimeout(() => wrap.remove(), 3200);
+}
+
 /* ============================ PROGRESS =================================== */
 function renderProgress() {
   const bw = state.bodyweightLog;
@@ -872,6 +976,13 @@ function renderProgress() {
     <div class="card">
       <div class="card-label">Estimated strength (top sets)</div>
       ${prRows}
+    </div>
+
+    <div class="card">
+      <div class="card-label">PR history 🏆</div>
+      ${(state.prLog && state.prLog.length)
+        ? state.prLog.slice().reverse().slice(0, 15).map(prLineHTML).join("")
+        : '<p class="muted center">No PRs yet — beat a logged set to set one!</p>'}
     </div>
 
     <div class="card">
