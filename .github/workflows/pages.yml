@@ -1,12 +1,19 @@
 name: Deploy to GitHub Pages
 
-# Publishes the static app to GitHub Pages on every push to the working branch.
-# Uses `enablement: true` so Pages turns itself on the first time this runs.
+# Publishes the static app to GitHub Pages.
+#
+# ONE-TIME SETUP REQUIRED (the Actions token can't enable Pages for you):
+#   Repo Settings -> Pages -> Build and deployment -> Source: "GitHub Actions",
+#   then run this workflow manually (Actions tab -> "Deploy to GitHub Pages" ->
+#   Run workflow). It deploys whatever is on the working branch.
+#
+# QUICKEST OPTION (recommended, no Actions needed): in Settings -> Pages choose
+#   Source: "Deploy from a branch" -> this branch -> /(root). GitHub then serves
+#   the files directly and auto-updates on every push. If you use that, you can
+#   ignore this workflow entirely.
+#
+# Manual-only trigger so it never auto-fails before Pages is enabled.
 on:
-  push:
-    branches:
-      - claude/fitness-dashboard-workout-library-467mrd
-      - main
   workflow_dispatch:
 
 permissions:
@@ -31,8 +38,6 @@ jobs:
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@v3

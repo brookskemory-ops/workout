@@ -12,10 +12,24 @@ low systemic fatigue; run the plan for months with small tweaks).
 
 ---
 
+## 🚀 One-time: turn on GitHub Pages
+
+GitHub won't let an automated token flip Pages on for you, so this is a single
+manual click (then it stays on forever):
+
+1. Go to the repo on GitHub → **Settings** → **Pages**.
+2. Under **Build and deployment → Source**, choose **Deploy from a branch**.
+3. Set the branch to **`claude/fitness-dashboard-workout-library-467mrd`** and the
+   folder to **`/ (root)`**, then **Save**.
+4. Wait ~1 minute. Your app is now live at
+   **`https://brookskemory-ops.github.io/workout/`** and auto-updates on every push.
+
+*(Prefer an Actions-based deploy instead? Set Source to "GitHub Actions" and run the
+included `Deploy to GitHub Pages` workflow from the Actions tab.)*
+
 ## 📲 Add it to your phone's home screen
 
-The app is hosted on **GitHub Pages**. Once it's live at
-`https://brookskemory-ops.github.io/workout/`:
+Once it's live at `https://brookskemory-ops.github.io/workout/`:
 
 ### iPhone (Safari)
 1. Open the link in **Safari**.
