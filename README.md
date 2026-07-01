@@ -74,14 +74,15 @@ budget target and your own rolling average.
 
 | Tab | What it does |
 |-----|--------------|
-| **Home** | This month's net cash flow (income − fixed − variable), a bills-paid tracker, any over-budget alerts, and recent transactions. |
+| **Home** | This month's net cash flow (income − fixed − variable), a bills-paid tracker, any over-budget alerts, a quick-glance at your nearest goal, and recent transactions. |
 | **Log** | Quick-add an expense or income entry (amount, category, note, date); see and delete this month's logged transactions. |
 | **Bills** | Your recurring **fixed bills** list (rent, subscriptions, insurance, loans, etc.) — set up once with a name, amount, category, and due day. Check one off each month to log it as paid; the total always counts toward your monthly fixed obligation whether or not it's checked off. |
+| **Goals** | **Savings goals** (Emergency Fund, Vacation, etc.) with an optional target date — log contributions and see a progress bar plus the $/month pace needed to hit your date, with an on-track/behind indicator. **Sinking funds** cover predictable-but-irregular costs (annual insurance, holiday gifts): set a target, contribute over time, then "spend it" to log the real expense and reset the fund for its next cycle. Also includes a **debt payoff planner** — add loans/cards with balance, APR, and minimum payment, choose avalanche (highest APR first, least total interest) or snowball (smallest balance first, faster early wins), add an extra monthly payment, and see a month-by-month payoff timeline and total interest. |
 | **Budgets** | Set a monthly **target per category** for your variable spending, with a progress bar (green → yellow → red) comparing actual spend to target and to your historical average. Manage the currency symbol and add custom categories here too. |
 | **Reports** | Monthly summary (income / fixed / variable / net / savings rate), a spending-by-category breakdown, and a 6-month net-cash-flow trend — pick any of the last 12 months. |
 
-All figures are computed live from your logged transactions and fixed-bill list — nothing
-needs a bank connection or the internet.
+All figures are computed live from your logged transactions, fixed-bill list, goals, and
+debts — nothing needs a bank connection or the internet.
 
 ## 🧠 How the auto-generator works
 

@@ -48,16 +48,22 @@ variable**, tracked against a budget target and your own rolling average.
 - **Reports** — monthly summary (income / fixed / variable / net / savings rate),
   spending-by-category breakdown, and a 6-month net-cash-flow trend; browse any of the
   last 12 months.
-- **Home** — net cash flow this month, bills-paid tracker, over-budget alerts, recent
-  transactions.
+- **Home** — net cash flow this month, bills-paid tracker, over-budget alerts, a
+  quick-glance goals teaser, recent transactions.
 - Income tracking included (paychecks, freelance, etc.) so net cash flow and savings rate
   are visible, not just spending.
+- **Goals tab** — multiple named **savings goals** (target amount + optional target date,
+  manual contribution logging, $/month pacing math with an on-track/behind indicator);
+  **sinking funds** for predictable-but-irregular costs (annual insurance, gifts) that log
+  a real expense and reset for their next cycle when "spent"; a **debt payoff planner**
+  (avalanche or snowball ordering, extra-payment cascading, month-by-month simulation,
+  total interest and debt-free date).
 
 ### Ideas for a future finance phase (not yet built)
 - Recurring-bill due-date reminders / "due soon" nudges
-- Savings goals (target amount + target date, progress tracking)
 - CSV export of transactions for spreadsheets / taxes
 - Multi-month budget trend per category (not just current month vs. average)
+- Recurring income setup (define paycheck schedule once instead of logging each payday)
 
 ---
 

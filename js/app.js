@@ -37,6 +37,11 @@ const DEFAULT_STATE = {
     transactions: [],    // [{id, date, amount, category, note, type:'expense'|'income', source:'fixed'|'variable'|'income', fixedBillId?}]
     budgets: {},         // categoryId -> monthly target amount
     customCategories: [],// [{id, name, icon, type:'expense'|'income'}] user-added, merged with the built-ins
+    goals: [],           // [{id, name, kind:'savings'|'sinking', target, targetDate, category, achieved, createdAt}]
+    contributions: [],   // [{id, goalId, amount, date}]
+    debts: [],           // [{id, name, balance, apr, minPayment}]
+    debtStrategy: "avalanche", // 'avalanche' | 'snowball'
+    debtExtraPayment: 0,
   },
   createdAt: new Date().toISOString(),
 };
@@ -111,16 +116,17 @@ const MODES = {
       { route: "fin-home",    ico: "🏠", label: "Home" },
       { route: "fin-log",     ico: "🧾", label: "Log" },
       { route: "fin-bills",   ico: "📅", label: "Bills" },
+      { route: "fin-goals",   ico: "🐷", label: "Goals" },
       { route: "fin-budgets", ico: "🎯", label: "Budgets" },
       { route: "fin-reports", ico: "📊", label: "Reports" },
     ],
     render: {
       "fin-home": renderFinHome, "fin-log": renderFinLog, "fin-bills": renderFinBills,
-      "fin-budgets": renderFinBudgets, "fin-reports": renderFinReports,
+      "fin-goals": renderFinGoals, "fin-budgets": renderFinBudgets, "fin-reports": renderFinReports,
     },
     wire: {
       "fin-home": wireFinHome, "fin-log": wireFinLog, "fin-bills": wireFinBills,
-      "fin-budgets": wireFinBudgets, "fin-reports": wireFinReports,
+      "fin-goals": wireFinGoals, "fin-budgets": wireFinBudgets, "fin-reports": wireFinReports,
     },
   },
 };
@@ -1481,6 +1487,8 @@ function renderFinHome() {
     </div>` : `
     <div class="card"><div class="suggestion">✅ No categories over budget this month.</div></div>`}
 
+    ${renderGoalsTeaser()}
+
     <div class="card">
       <div class="card-label">Recent transactions</div>
       ${recent.length ? recent.map(t => txnLineHTML(t, false)).join("") : '<p class="muted center">Nothing logged yet — tap "Log expense / income" above.</p>'}
@@ -1489,6 +1497,23 @@ function renderFinHome() {
 }
 function wireFinHome() {
   $$("[data-nav]").forEach(b => b.addEventListener("click", () => navigate(b.dataset.nav)));
+}
+
+// Quick-glance card for the soonest active goal (by target date, else most recent).
+function renderGoalsTeaser() {
+  const active = (state.finance.goals || []).filter(g => !g.achieved);
+  if (!active.length) return "";
+  const next = active.slice().sort((a, b) => {
+    if (a.targetDate && b.targetDate) return new Date(a.targetDate) - new Date(b.targetDate);
+    return a.targetDate ? -1 : b.targetDate ? 1 : 0;
+  })[0];
+  const current = goalCurrent(next.id);
+  const pct = Math.min(100, (current / next.target) * 100);
+  return `<button class="card" data-nav="fin-goals">
+    <div class="card-label">${next.kind === "sinking" ? "🧩 Sinking fund" : "🐷 Savings goal"} · ${esc(next.name)}</div>
+    <div class="bar"><div class="bar-fill" style="width:${pct}%;background:#51cf66"></div></div>
+    <div class="muted small">${fmtMoneyShort(current)} / ${fmtMoneyShort(next.target)}${active.length > 1 ? ` · +${active.length - 1} more goal${active.length > 2 ? "s" : ""}` : ""}</div>
+  </button>`;
 }
 
 /* ---- Finance: Log ---- */
@@ -1769,6 +1794,345 @@ function renderFinReports() {
 }
 function wireFinReports() {
   $("#report-month")?.addEventListener("change", (e) => { finReportMonth = e.target.value; render(); });
+}
+
+/* ---- Finance: Goals (savings goals & sinking funds) ---- */
+function goalCurrent(goalId) {
+  return state.finance.contributions.filter(c => c.goalId === goalId).reduce((a, c) => a + c.amount, 0);
+}
+// Pacing toward a goal's target date: required $/month, and whether the
+// contribution rate so far is on track to get there.
+function goalPacing(goal) {
+  if (!goal.targetDate) return null;
+  const current = goalCurrent(goal.id);
+  const remaining = Math.max(0, goal.target - current);
+  const now = new Date(), target = new Date(goal.targetDate);
+  const overdue = target < now && remaining > 0;
+  const monthsRemaining = Math.max(1, Math.round((target - now) / (1000 * 60 * 60 * 24 * 30.44)));
+  const neededPerMonth = remaining / monthsRemaining;
+  const contribs = state.finance.contributions.filter(c => c.goalId === goal.id);
+  let onTrack = null;
+  if (contribs.length && remaining > 0) {
+    const firstDate = new Date(Math.min(...contribs.map(c => new Date(c.date).getTime())));
+    const monthsSinceStart = Math.max(1, Math.round((now - firstDate) / (1000 * 60 * 60 * 24 * 30.44)));
+    const avgPerMonth = current / monthsSinceStart;
+    onTrack = avgPerMonth >= neededPerMonth * 0.9;
+  }
+  return { remaining, monthsRemaining, neededPerMonth, onTrack, overdue };
+}
+function completeGoal(goalId) {
+  const g = state.finance.goals.find(x => x.id === goalId);
+  if (!g) return;
+  if (g.kind === "sinking") {
+    const current = goalCurrent(g.id);
+    const amount = current > 0 ? Math.min(current, g.target) : g.target;
+    addTransaction({ type: "expense", amount, category: g.category || "misc", note: g.name, date: new Date().toISOString() });
+    // reset contributions so the fund starts refilling for its next cycle
+    state.finance.contributions = state.finance.contributions.filter(c => c.goalId !== g.id);
+    save(); render();
+    toast(`${g.name} expense logged · fund reset for next cycle`);
+  } else {
+    g.achieved = true;
+    save();
+    launchConfetti();
+    render();
+    toast(`🏆 ${g.name} goal reached!`);
+  }
+}
+
+function goalCardHTML(g) {
+  const current = goalCurrent(g.id);
+  const pct = Math.min(100, (current / g.target) * 100);
+  const pacing = goalPacing(g);
+  const kindLabel = g.kind === "sinking" ? "🧩 Sinking fund" : "🐷 Savings goal";
+  const barColor = pacing && pacing.onTrack === false ? "#ff8787" : "#51cf66";
+  let pacingLine = "";
+  if (pacing) {
+    if (pacing.overdue) pacingLine = `<div class="muted small">⚠️ Target date has passed — ${fmtMoneyShort(pacing.remaining)} still needed.</div>`;
+    else pacingLine = `<div class="muted small">Need ${fmtMoneyShort(pacing.neededPerMonth)}/mo to hit ${fmtMonth(monthKey(g.targetDate))}${pacing.onTrack === true ? " · on track ✅" : pacing.onTrack === false ? " · behind pace ⚠️" : ""}</div>`;
+  }
+  return `<div class="goal-card">
+    <div class="goal-head">
+      <div>
+        <div class="bill-name">${esc(g.name)}</div>
+        <div class="muted small">${kindLabel}${g.targetDate ? ` · by ${fmtMonth(monthKey(g.targetDate))}` : ""}</div>
+      </div>
+      <button class="icon-btn" data-edit-goal="${g.id}">✎</button>
+    </div>
+    <div class="bar"><div class="bar-fill" style="width:${pct}%;background:${barColor}"></div></div>
+    <div class="muted small">${fmtMoneyShort(current)} / ${fmtMoneyShort(g.target)}</div>
+    ${pacingLine}
+    <div class="macro-inputs" style="margin-top:8px">
+      <input class="input goal-contrib-amt" data-goal-contrib="${g.id}" inputmode="decimal" placeholder="Add ${financeCurrency()}" />
+      <button class="btn" data-goal-contrib-add="${g.id}">Add</button>
+    </div>
+    <button class="btn small block" data-goal-complete="${g.id}">${g.kind === "sinking" ? "✅ Spend it (log expense & reset)" : "🏆 Mark reached"}</button>
+  </div>`;
+}
+
+function renderFinGoals() {
+  const active = state.finance.goals.filter(g => !g.achieved);
+  const achieved = state.finance.goals.filter(g => g.achieved);
+  const expCats = allExpenseCategories();
+
+  return `
+    <header class="page-head"><h1>Goals</h1><p class="muted">Savings goals, sinking funds & debt payoff</p></header>
+
+    <div class="card">
+      <div class="card-label">Active goals</div>
+      ${active.length ? active.map(goalCardHTML).join("") : '<p class="muted center">No goals yet. Add an emergency fund, a vacation, or a sinking fund for an annual bill below.</p>'}
+    </div>
+
+    <div class="card">
+      <div class="card-label">Add a goal</div>
+      <input id="goal-name" class="input" placeholder="Name (e.g. Emergency Fund, Car Insurance)" />
+      <div class="fin-type-toggle">
+        <button class="fin-type-btn active" data-goal-kind="savings">🐷 Savings goal</button>
+        <button class="fin-type-btn" data-goal-kind="sinking">🧩 Sinking fund</button>
+      </div>
+      <div class="macro-inputs">
+        <input id="goal-target" class="input" inputmode="decimal" placeholder="Target amount" />
+        <input id="goal-date" class="input" type="date" placeholder="Target date (optional)" />
+      </div>
+      <select id="goal-category" class="select block" style="display:none">${expCats.map(c => `<option value="${c.id}">${c.icon} ${esc(c.name)}</option>`).join("")}</select>
+      <p class="muted small">Sinking fund = money you set aside for a predictable but irregular cost (annual insurance, holiday gifts). "Spend it" logs the expense and resets the fund for its next cycle.</p>
+      <button id="goal-add" class="btn primary block">+ Add goal</button>
+    </div>
+
+    ${achieved.length ? `
+    <div class="card">
+      <div class="card-label">🏆 Completed goals</div>
+      ${achieved.map(g => `<div class="vol-row"><span class="vol-label">${esc(g.name)}</span><span class="vol-num">${fmtMoneyShort(g.target)}</span></div>`).join("")}
+    </div>` : ""}
+
+    ${renderDebtSection()}
+  `;
+}
+function wireFinGoals() {
+  let curKind = "savings";
+  const kindBtns = $$("[data-goal-kind]");
+  const catSelect = $("#goal-category");
+  kindBtns.forEach(b => b.addEventListener("click", () => {
+    curKind = b.dataset.goalKind;
+    kindBtns.forEach(x => x.classList.toggle("active", x === b));
+    if (catSelect) catSelect.style.display = curKind === "sinking" ? "" : "none";
+  }));
+  $("#goal-add")?.addEventListener("click", () => {
+    const name = $("#goal-name").value.trim();
+    const target = parseFloat($("#goal-target").value);
+    const dateVal = $("#goal-date").value;
+    if (!name || isNaN(target) || target <= 0) { toast("Enter a name and target amount"); return; }
+    state.finance.goals.push({
+      id: uid(), name, kind: curKind, target,
+      targetDate: dateVal ? new Date(dateVal + "T12:00:00").toISOString() : null,
+      category: curKind === "sinking" ? catSelect.value : null,
+      achieved: false, createdAt: new Date().toISOString(),
+    });
+    save(); render(); toast("Goal added ✔");
+  });
+  $$("[data-goal-contrib-add]").forEach(b => b.addEventListener("click", () => {
+    const goalId = b.dataset.goalContribAdd;
+    const input = $(`[data-goal-contrib="${goalId}"]`);
+    const amount = parseFloat(input.value);
+    if (isNaN(amount) || amount <= 0) { toast("Enter an amount"); return; }
+    state.finance.contributions.push({ id: uid(), goalId, amount, date: new Date().toISOString() });
+    save(); render(); toast("Contribution logged ✔");
+  }));
+  $$("[data-goal-complete]").forEach(b => b.addEventListener("click", () => completeGoal(b.dataset.goalComplete)));
+  $$("[data-edit-goal]").forEach(b => b.addEventListener("click", () => {
+    const g = state.finance.goals.find(x => x.id === b.dataset.editGoal);
+    if (g) showGoalEditModal(g);
+  }));
+  wireDebtSection();
+}
+function showGoalEditModal(g) {
+  const expCats = allExpenseCategories();
+  const dateVal = g.targetDate ? g.targetDate.slice(0, 10) : "";
+  const contribRows = state.finance.contributions.filter(c => c.goalId === g.id).slice().reverse().map(c => `
+    <div class="food-item"><div><div class="food-name">${fmtMoneyShort(c.amount)}</div><div class="muted small">${fmtDate(c.date)}</div></div>
+    <button class="del-food" data-del-contrib="${c.id}">✕</button></div>`).join("") || '<p class="muted small">No contributions yet.</p>';
+  const modal = document.createElement("div");
+  modal.className = "modal-backdrop";
+  modal.innerHTML = `
+    <div class="modal">
+      <button class="modal-close">✕</button>
+      <h2>Edit goal</h2>
+      <input id="eg-name" class="input" value="${esc(g.name)}" />
+      <div class="macro-inputs">
+        <input id="eg-target" class="input" inputmode="decimal" value="${g.target}" />
+        <input id="eg-date" class="input" type="date" value="${dateVal}" />
+      </div>
+      ${g.kind === "sinking" ? `<select id="eg-category" class="select block">${expCats.map(c => `<option value="${c.id}" ${c.id === g.category ? "selected" : ""}>${c.icon} ${esc(c.name)}</option>`).join("")}</select>` : ""}
+      <div class="card-label">Contribution history</div>
+      <div id="eg-contribs">${contribRows}</div>
+      <button id="eg-save" class="btn primary block">Save changes</button>
+      <button id="eg-delete" class="btn block danger">Delete goal</button>
+    </div>`;
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal || e.target.classList.contains("modal-close")) modal.remove();
+  });
+  modal.querySelectorAll("[data-del-contrib]").forEach(b => b.addEventListener("click", () => {
+    state.finance.contributions = state.finance.contributions.filter(c => c.id !== b.dataset.delContrib);
+    save(); modal.remove(); render(); toast("Contribution removed");
+  }));
+  modal.querySelector("#eg-save").addEventListener("click", () => {
+    const name = modal.querySelector("#eg-name").value.trim();
+    const target = parseFloat(modal.querySelector("#eg-target").value);
+    const dv = modal.querySelector("#eg-date").value;
+    if (!name || isNaN(target) || target <= 0) { toast("Enter a name and target"); return; }
+    g.name = name; g.target = target;
+    g.targetDate = dv ? new Date(dv + "T12:00:00").toISOString() : null;
+    if (g.kind === "sinking") g.category = modal.querySelector("#eg-category").value;
+    save(); modal.remove(); render(); toast("Goal updated ✔");
+  });
+  modal.querySelector("#eg-delete").addEventListener("click", () => {
+    if (confirm(`Delete "${g.name}"? This removes its contribution history too.`)) {
+      state.finance.goals = state.finance.goals.filter(x => x.id !== g.id);
+      state.finance.contributions = state.finance.contributions.filter(c => c.goalId !== g.id);
+      save(); modal.remove(); render(); toast("Goal deleted");
+    }
+  });
+  document.body.appendChild(modal);
+}
+
+/* ---- Finance: Debt payoff planner ---- */
+// Simulates month-by-month payoff: interest accrues on each debt, minimum
+// payments are always made, and (extra + freed-up minimums from paid-off
+// debts) cascade to whichever debt is first in the chosen strategy's order.
+function computePayoffPlan(debts, strategy, extra) {
+  if (!debts || !debts.length) return null;
+  const list = debts.map(d => ({ id: d.id, name: d.name, balance: d.balance, apr: d.apr || 0, minPayment: d.minPayment, interestPaid: 0, paidOffMonth: null }));
+  const order = strategy === "snowball"
+    ? list.slice().sort((a, b) => a.balance - b.balance)
+    : list.slice().sort((a, b) => (b.apr || 0) - (a.apr || 0));
+  const maxMonths = 600;
+  let month = 0, freedUp = 0;
+  while (order.some(d => d.balance > 0.01) && month < maxMonths) {
+    month++;
+    const pool = extra + freedUp;
+    freedUp = 0;
+    const target = order.find(d => d.balance > 0.01);
+    for (const d of order) {
+      if (d.balance <= 0.01) continue;
+      const interest = d.balance * (d.apr / 100 / 12);
+      d.interestPaid += interest;
+      d.balance += interest;
+      const payment = Math.min(d.minPayment + (d === target ? pool : 0), d.balance);
+      d.balance -= payment;
+      if (d.balance <= 0.01 && d.paidOffMonth === null) {
+        d.paidOffMonth = month;
+        freedUp += d.minPayment;
+      }
+    }
+  }
+  const capped = order.some(d => d.paidOffMonth === null);
+  const totalMonths = capped ? maxMonths : Math.max(...order.map(d => d.paidOffMonth));
+  const totalInterest = order.reduce((a, d) => a + d.interestPaid, 0);
+  const debtFreeDate = capped ? null : addMonths(currentMonthKey(), totalMonths);
+  return { order, totalMonths, totalInterest, debtFreeDate, capped };
+}
+function renderDebtSection() {
+  const debts = state.finance.debts;
+  const strategy = state.finance.debtStrategy || "avalanche";
+  const extra = state.finance.debtExtraPayment || 0;
+  const plan = debts.length ? computePayoffPlan(debts, strategy, extra) : null;
+
+  const debtRows = debts.map(d => {
+    const p = plan?.order.find(x => x.id === d.id);
+    return `<div class="bill-row">
+      <div class="bill-info">
+        <div class="bill-name">💳 ${esc(d.name)}</div>
+        <div class="muted small">${fmtMoneyShort(d.balance)} bal · ${d.apr || 0}% APR · ${fmtMoneyShort(d.minPayment)}/mo min${p ? ` · payoff in ${p.paidOffMonth ?? "50+"} mo` : ""}</div>
+      </div>
+      <button class="icon-btn" data-edit-debt="${d.id}">✎</button>
+    </div>`;
+  }).join("");
+
+  return `
+    <div class="card">
+      <div class="card-label">💳 Debt payoff planner</div>
+      ${debts.length ? debtRows : '<p class="muted center">No debts added. Track loans / credit cards to see a payoff timeline.</p>'}
+      ${debts.length ? `
+        <div class="fin-type-toggle" style="margin-top:10px">
+          <button class="fin-type-btn ${strategy === "avalanche" ? "active" : ""}" data-strategy="avalanche">🏔️ Avalanche</button>
+          <button class="fin-type-btn ${strategy === "snowball" ? "active" : ""}" data-strategy="snowball">⚪ Snowball</button>
+        </div>
+        <input id="debt-extra" class="input" inputmode="decimal" placeholder="Extra ${financeCurrency()}/mo toward debt" value="${extra || ""}" />
+        ${plan ? `
+          <div class="suggestion ${plan.capped ? "suggestion-add-reps" : ""}">
+            ${plan.capped
+              ? `⚠️ Even with this payment, payoff is beyond 50 years — increase your monthly amount.`
+              : `🎯 Debt-free in <strong>${plan.totalMonths} months</strong> (${fmtMonth(plan.debtFreeDate)}) · ~${fmtMoneyShort(plan.totalInterest)} total interest.`}
+          </div>
+          <div class="muted small">${strategy === "avalanche" ? "Avalanche: highest APR first — minimizes total interest paid." : "Snowball: smallest balance first — faster early wins for motivation."}</div>
+        ` : ""}
+      ` : ""}
+      <input id="debt-name" class="input" placeholder="Debt name (e.g. Car loan, Visa card)" />
+      <div class="macro-inputs">
+        <input id="debt-balance" class="input" inputmode="decimal" placeholder="Balance" />
+        <input id="debt-apr" class="input" inputmode="decimal" placeholder="APR % (0 if none)" />
+      </div>
+      <input id="debt-min" class="input" inputmode="decimal" placeholder="Minimum payment / mo" />
+      <button id="debt-add" class="btn block">+ Add debt</button>
+    </div>`;
+}
+function wireDebtSection() {
+  $("#debt-add")?.addEventListener("click", () => {
+    const name = $("#debt-name").value.trim();
+    const balance = parseFloat($("#debt-balance").value);
+    const apr = parseFloat($("#debt-apr").value) || 0;
+    const minPayment = parseFloat($("#debt-min").value);
+    if (!name || isNaN(balance) || balance <= 0 || isNaN(minPayment) || minPayment <= 0) { toast("Enter a name, balance, and minimum payment"); return; }
+    state.finance.debts.push({ id: uid(), name, balance, apr, minPayment });
+    save(); render(); toast("Debt added ✔");
+  });
+  $$("[data-strategy]").forEach(b => b.addEventListener("click", () => {
+    state.finance.debtStrategy = b.dataset.strategy; save(); render();
+  }));
+  $("#debt-extra")?.addEventListener("change", (e) => {
+    state.finance.debtExtraPayment = parseFloat(e.target.value) || 0;
+    save(); render();
+  });
+  $$("[data-edit-debt]").forEach(b => b.addEventListener("click", () => {
+    const debt = state.finance.debts.find(x => x.id === b.dataset.editDebt);
+    if (debt) showDebtEditModal(debt);
+  }));
+}
+function showDebtEditModal(d) {
+  const modal = document.createElement("div");
+  modal.className = "modal-backdrop";
+  modal.innerHTML = `
+    <div class="modal">
+      <button class="modal-close">✕</button>
+      <h2>Edit debt</h2>
+      <input id="ed-name" class="input" value="${esc(d.name)}" />
+      <div class="macro-inputs">
+        <input id="ed-balance" class="input" inputmode="decimal" value="${d.balance}" />
+        <input id="ed-apr" class="input" inputmode="decimal" value="${d.apr || 0}" />
+      </div>
+      <input id="ed-min" class="input" inputmode="decimal" value="${d.minPayment}" />
+      <button id="ed-save" class="btn primary block">Save changes</button>
+      <button id="ed-delete" class="btn block danger">Delete debt</button>
+    </div>`;
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal || e.target.classList.contains("modal-close")) modal.remove();
+  });
+  modal.querySelector("#ed-save").addEventListener("click", () => {
+    const name = modal.querySelector("#ed-name").value.trim();
+    const balance = parseFloat(modal.querySelector("#ed-balance").value);
+    const apr = parseFloat(modal.querySelector("#ed-apr").value) || 0;
+    const minPayment = parseFloat(modal.querySelector("#ed-min").value);
+    if (!name || isNaN(balance) || balance < 0 || isNaN(minPayment) || minPayment <= 0) { toast("Check your inputs"); return; }
+    d.name = name; d.balance = balance; d.apr = apr; d.minPayment = minPayment;
+    save(); modal.remove(); render(); toast("Debt updated ✔");
+  });
+  modal.querySelector("#ed-delete").addEventListener("click", () => {
+    if (confirm(`Delete "${d.name}"?`)) {
+      state.finance.debts = state.finance.debts.filter(x => x.id !== d.id);
+      save(); modal.remove(); render(); toast("Debt deleted");
+    }
+  });
+  document.body.appendChild(modal);
 }
 
 /* ============================ CALC / UI BITS ============================== */

@@ -297,6 +297,10 @@ button.card.center { text-align: center; }
 .bill-name { font-weight: 700; }
 .bill-amt { font-weight: 700; flex: 0 0 auto; }
 
+.goal-card { padding: 14px 0; border-bottom: 1px solid var(--line); }
+.goal-card:last-child { border-bottom: none; }
+.goal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+
 .budget-row { padding: 10px 0; border-bottom: 1px solid var(--line); }
 .budget-row:last-child { border-bottom: none; }
 .budget-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 6px; }
