@@ -1,10 +1,12 @@
-# 🦍 Monster Mode — Personal Fitness Dashboard
+# 🦍 Monster Mode — Personal Dashboard
 
-A private, installable phone dashboard to **log food, track workouts, and auto-generate
-balanced routines** with progressive-overload coaching. Built as an offline-first PWA
-(Progressive Web App) — no account, no server, all your data stays on your phone.
+A private, installable phone dashboard with two modes, chosen every time you open the
+app: **Fitness** (log food, track workouts, auto-generate balanced routines with
+progressive-overload coaching) and **Finance** (track every expense, fixed bills,
+income, and budgets). Built as an offline-first PWA (Progressive Web App) — no account,
+no server, all your data stays on your phone.
 
-Training principles draw on **Jeff Nippard's** evidence-based hypertrophy work
+Fitness training principles draw on **Jeff Nippard's** evidence-based hypertrophy work
 (10–20 hard sets per muscle per week, train each muscle 2–3×, emphasize the stretched
 position, leave 1–3 reps in reserve, progressive overload) and **TNF / Joel Twinem's**
 natural-lifting philosophy (keep it simple, stable and loadable; clean exercise order;
@@ -46,16 +48,40 @@ Because it's a PWA with a service worker, it works **offline** after the first l
 
 ---
 
-## 💪 What's inside
+## 🚦 Choosing a mode
+
+Every time you open the app, you land on a picker: **Fitness** or **Finance**. Pick one
+and you get that mode's dashboard and bottom tab bar for the rest of the session. A
+**🔀 Switch app** button (in Fitness → Setup, or Finance → Budgets) brings the picker
+back anytime without needing to reload.
+
+## 💪 Fitness mode
 
 | Tab | What it does |
 |-----|--------------|
 | **Home** | Next workout, calories & protein vs. goal, day streak, water / steps / cardio quick-log, this-week's volume per muscle, daily training principle. |
-| **Workout** | Your generated day with per-exercise **progressive-overload suggestions** (double progression), set-by-set weight × reps logging, an auto-starting **rest timer**, and tap-for-info on every movement. |
+| **Workout** | Your generated day with per-exercise **progressive-overload suggestions** (double progression), set-by-set weight × reps logging, an auto-starting **rest timer**, plate + warm-up calculator, exercise swap, and tap-for-info on every movement. |
 | **Food** | Macro summary, one-tap **quick-add** common foods, custom entries, today's meal list. |
-| **Library** | 36 exercises across every muscle group — searchable, each with a description, step-by-step cues, target muscles, rep range / RIR, and a science note. |
-| **Progress** | Bodyweight trend, body measurements (chest / arms / waist / thighs), estimated strength (e1RM) on the big lifts, cardio history, weekly volume. |
+| **Library** | 74 exercises across every muscle group — searchable, each with a description, step-by-step cues, target muscles, rep range / RIR, and a science note. |
+| **Progress** | Bodyweight trend, body measurements, estimated strength (e1RM), PR history with celebrations, cardio history, weekly volume. |
 | **Setup** | Profile & goals, experience level, **auto-generate / re-roll** your program, equipment filter, export / import / reset data. |
+
+## 💰 Finance mode
+
+Built around one simple model: **fixed expenses stay the same every month** (you set
+them up once), and **everything you log day-to-day is variable** — tracked against a
+budget target and your own rolling average.
+
+| Tab | What it does |
+|-----|--------------|
+| **Home** | This month's net cash flow (income − fixed − variable), a bills-paid tracker, any over-budget alerts, and recent transactions. |
+| **Log** | Quick-add an expense or income entry (amount, category, note, date); see and delete this month's logged transactions. |
+| **Bills** | Your recurring **fixed bills** list (rent, subscriptions, insurance, loans, etc.) — set up once with a name, amount, category, and due day. Check one off each month to log it as paid; the total always counts toward your monthly fixed obligation whether or not it's checked off. |
+| **Budgets** | Set a monthly **target per category** for your variable spending, with a progress bar (green → yellow → red) comparing actual spend to target and to your historical average. Manage the currency symbol and add custom categories here too. |
+| **Reports** | Monthly summary (income / fixed / variable / net / savings rate), a spending-by-category breakdown, and a 6-month net-cash-flow trend — pick any of the last 12 months. |
+
+All figures are computed live from your logged transactions and fixed-bill list — nothing
+needs a bank connection or the internet.
 
 ## 🧠 How the auto-generator works
 
@@ -76,11 +102,12 @@ it tells you to beat your previous reps.
 ## 🗂 Project structure
 
 ```
-index.html              app shell + bottom nav
+index.html              app shell + mode-aware bottom nav
 css/styles.css          mobile-first dark theme
 js/exercises.js         exercise library + muscle/volume targets
 js/generator.js         split templates, balancing pass, progression engine
-js/app.js               UI, routing, logging, localStorage state
+js/finance.js           expense/income categories + date helpers
+js/app.js               UI, routing (Fitness/Finance launcher), logging, localStorage state
 manifest.webmanifest    PWA manifest (installability)
 sw.js                   service worker (offline cache)
 icons/                  app icons

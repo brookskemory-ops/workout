@@ -8,6 +8,10 @@ JSON export. Decisions locked in with the owner:
 - **Default split / volume:** PPL 6-day, advanced.
 - **Data model:** local `localStorage`, single versioned state object.
 - **Food database:** bundled offline list + search (no barcode/online API, by design).
+- **App modes:** Fitness and Finance are peers under one dashboard; the app **asks every
+  time** which one to open (no remembered default) — a manual switch is always available.
+- **Finance model:** fixed expenses are a one-time recurring setup list; variable expenses
+  are whatever gets logged; income is tracked; budget targets are set from day one.
 
 Legend: ✅ done · 🚧 in progress · ⏳ planned
 
@@ -27,9 +31,39 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned
 
 ---
 
+## ✅ Finance Module — shipped
+A second app mode alongside Fitness, chosen every time you open the app (per the
+owner's call — no "remembered" default, always asks). Built around one model: **fixed
+expenses are defined once and recur automatically**; **everything you log day-to-day is
+variable**, tracked against a budget target and your own rolling average.
+- App-mode launcher (Fitness / Finance) + a "🔀 Switch app" affordance from within either
+  mode, with its own 5-tab bar per mode.
+- **Bills** — recurring fixed-expense list (name, amount, category, due day, active
+  toggle); a current-month checklist that logs a real transaction when checked off, while
+  the total always counts toward the monthly fixed obligation regardless of paid status.
+- **Log** — quick-add expense or income transactions (amount, category, note, date);
+  view/delete this month's entries.
+- **Budgets** — monthly target per category with a green/yellow/red progress bar vs.
+  actual spend and your historical average; currency symbol + custom category management.
+- **Reports** — monthly summary (income / fixed / variable / net / savings rate),
+  spending-by-category breakdown, and a 6-month net-cash-flow trend; browse any of the
+  last 12 months.
+- **Home** — net cash flow this month, bills-paid tracker, over-budget alerts, recent
+  transactions.
+- Income tracking included (paychecks, freelance, etc.) so net cash flow and savings rate
+  are visible, not just spending.
+
+### Ideas for a future finance phase (not yet built)
+- Recurring-bill due-date reminders / "due soon" nudges
+- Savings goals (target amount + target date, progress tracking)
+- CSV export of transactions for spreadsheets / taxes
+- Multi-month budget trend per category (not just current month vs. average)
+
+---
+
 ## 🚧 Phase 1 — Daily-driver quality of life
 High-value, self-contained, used every session.
-1. **Exercise swap button** 🚧 — sub any movement mid-workout for another that hits the
+1. **Exercise swap button** ✅ — sub any movement mid-workout for another that hits the
    same muscle (equipment-aware). Persists into the program.
 2. **Plate + warm-up calculator** ✅ — for a target working weight, shows the exact plate
    loadout per side and an auto-generated warm-up ramp (bar → 50% → 70% → 85% → work).

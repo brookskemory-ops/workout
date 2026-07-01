@@ -31,6 +31,13 @@ const DEFAULT_STATE = {
   waterLog: {},          // 'YYYY-MM-DD' -> oz
   stepsLog: {},          // 'YYYY-MM-DD' -> steps
   cardioLog: [],         // [{date, type, minutes, kcal}]
+  finance: {
+    currency: "$",
+    fixedExpenses: [],   // [{id, name, amount, category, dueDay, active}]
+    transactions: [],    // [{id, date, amount, category, note, type:'expense'|'income', source:'fixed'|'variable'|'income', fixedBillId?}]
+    budgets: {},         // categoryId -> monthly target amount
+    customCategories: [],// [{id, name, icon, type:'expense'|'income'}] user-added, merged with the built-ins
+  },
   createdAt: new Date().toISOString(),
 };
 
@@ -73,39 +80,125 @@ function toast(msg) {
   t._timer = setTimeout(() => t.classList.remove("show"), 1800);
 }
 
-/* ----------------------------- router ------------------------------------- */
-const ROUTES = ["dashboard", "workout", "food", "library", "progress", "settings"];
+/* ----------------------------- app mode / router --------------------------- */
+// appMode is intentionally NOT persisted — every fresh app open asks the user
+// to pick Fitness or Finance. It only lives in memory for the current session.
+let appMode = null; // null | 'fitness' | 'finance'
+
+const MODES = {
+  fitness: {
+    label: "Fitness", default: "dashboard",
+    tabs: [
+      { route: "dashboard", ico: "🏠", label: "Home" },
+      { route: "workout",   ico: "🏋️", label: "Workout" },
+      { route: "food",      ico: "🍽️", label: "Food" },
+      { route: "library",   ico: "📚", label: "Library" },
+      { route: "progress",  ico: "📈", label: "Progress" },
+      { route: "settings",  ico: "⚙️", label: "Setup" },
+    ],
+    render: {
+      dashboard: renderDashboard, workout: renderWorkout, food: renderFood,
+      library: renderLibrary, progress: renderProgress, settings: renderSettings,
+    },
+    wire: {
+      dashboard: wireDashboard, workout: wireWorkout, food: wireFood,
+      library: wireLibrary, progress: wireProgress, settings: wireSettings,
+    },
+  },
+  finance: {
+    label: "Finance", default: "fin-home",
+    tabs: [
+      { route: "fin-home",    ico: "🏠", label: "Home" },
+      { route: "fin-log",     ico: "🧾", label: "Log" },
+      { route: "fin-bills",   ico: "📅", label: "Bills" },
+      { route: "fin-budgets", ico: "🎯", label: "Budgets" },
+      { route: "fin-reports", ico: "📊", label: "Reports" },
+    ],
+    render: {
+      "fin-home": renderFinHome, "fin-log": renderFinLog, "fin-bills": renderFinBills,
+      "fin-budgets": renderFinBudgets, "fin-reports": renderFinReports,
+    },
+    wire: {
+      "fin-home": wireFinHome, "fin-log": wireFinLog, "fin-bills": wireFinBills,
+      "fin-budgets": wireFinBudgets, "fin-reports": wireFinReports,
+    },
+  },
+};
+
 function currentRoute() {
+  const mode = MODES[appMode];
   const r = location.hash.replace("#", "");
-  return ROUTES.includes(r) ? r : "dashboard";
+  const valid = mode.tabs.some(t => t.route === r);
+  return valid ? r : mode.default;
 }
-function navigate(route) { location.hash = route; }
+function navigate(route) {
+  // manually re-render even if the hash is unchanged (e.g. re-picking the same
+  // route after a mode switch), since 'hashchange' won't fire in that case
+  if (location.hash === "#" + route) render();
+  else location.hash = route;
+}
 window.addEventListener("hashchange", render);
+
+function chooseMode(mode) {
+  appMode = mode;
+  buildTabBar();
+  location.hash = MODES[mode].default;
+  render(); // covers the case where the hash didn't change and 'hashchange' won't fire
+}
+function switchMode() {
+  appMode = null;
+  $("#tabbar").innerHTML = "";
+  render();
+}
+
+function buildTabBar() {
+  const mode = MODES[appMode];
+  $("#tabbar").innerHTML = mode.tabs.map(t =>
+    `<a class="tab" data-route="${t.route}" href="#${t.route}"><span class="ico">${t.ico}</span><span>${t.label}</span></a>`
+  ).join("");
+}
 
 /* ============================ RENDER ROOT ================================== */
 function render() {
+  if (!appMode) {
+    $("#tabbar").innerHTML = "";
+    $("#view").innerHTML = renderLauncher();
+    wireLauncher();
+    return;
+  }
+  const mode = MODES[appMode];
   const route = currentRoute();
   $$(".tab").forEach(t => t.classList.toggle("active", t.dataset.route === route));
   const view = $("#view");
   view.scrollTop = 0;
-  const fns = {
-    dashboard: renderDashboard,
-    workout: renderWorkout,
-    food: renderFood,
-    library: renderLibrary,
-    progress: renderProgress,
-    settings: renderSettings,
-  };
-  view.innerHTML = fns[route]();
-  // post-render wiring
-  ({
-    dashboard: wireDashboard,
-    workout: wireWorkout,
-    food: wireFood,
-    library: wireLibrary,
-    progress: wireProgress,
-    settings: wireSettings,
-  })[route]?.();
+  view.innerHTML = mode.render[route]();
+  mode.wire[route]?.();
+}
+
+/* ============================ LAUNCHER ==================================== */
+function renderLauncher() {
+  return `
+    <div class="launcher">
+      <div class="launcher-title">
+        <div class="launcher-logo">🦍</div>
+        <h1>Monster Mode</h1>
+        <p class="muted">What are we working on?</p>
+      </div>
+      <button class="mode-card mode-fitness" data-mode="fitness">
+        <span class="mode-ico">🏋️</span>
+        <span class="mode-name">Fitness</span>
+        <span class="mode-sub">Workouts · Food · Progress</span>
+      </button>
+      <button class="mode-card mode-finance" data-mode="finance">
+        <span class="mode-ico">💰</span>
+        <span class="mode-name">Finance</span>
+        <span class="mode-sub">Expenses · Bills · Budgets</span>
+      </button>
+    </div>
+  `;
+}
+function wireLauncher() {
+  $$("[data-mode]").forEach(b => b.addEventListener("click", () => chooseMode(b.dataset.mode)));
 }
 
 /* ============================ DASHBOARD =================================== */
@@ -1119,6 +1212,11 @@ function renderSettings() {
     </div>
 
     <div class="card">
+      <div class="card-label">App</div>
+      <button id="switch-mode" class="btn block">🔀 Switch app (Fitness / Finance)</button>
+    </div>
+
+    <div class="card">
       <div class="card-label">About</div>
       <p class="muted small">Monster Mode is a private, offline dashboard. Training principles draw on Jeff Nippard's evidence-based hypertrophy work (volume, frequency, stretch, progressive overload) and TNF / Joel Twinem's simple, sustainable, progressable natural-lifting approach. Add it to your home screen for an app-like shortcut.</p>
     </div>
@@ -1175,6 +1273,7 @@ function wireSettings() {
       state = structuredClone(DEFAULT_STATE); save(); render(); toast("Reset complete");
     }
   });
+  $("#switch-mode")?.addEventListener("click", switchMode);
 }
 
 function doGenerate() {
@@ -1204,6 +1303,472 @@ function importData(e) {
     } catch { toast("Invalid file"); }
   };
   reader.readAsText(file);
+}
+
+/* ============================ FINANCE ===================================== */
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+function financeCurrency() { return state.finance.currency || "$"; }
+function fmtMoneyShort(n) {
+  const sign = n < 0 ? "-" : "";
+  return `${sign}${financeCurrency()}${Math.round(Math.abs(n || 0)).toLocaleString()}`;
+}
+function allExpenseCategories() {
+  return [...EXPENSE_CATEGORIES, ...state.finance.customCategories.filter(c => c.type === "expense")];
+}
+function allIncomeCategories() {
+  return [...INCOME_CATEGORIES, ...state.finance.customCategories.filter(c => c.type === "income")];
+}
+function expenseCatById(id) { return allExpenseCategories().find(c => c.id === id) || { id, name: id, icon: "📦" }; }
+function incomeCatById(id) { return allIncomeCategories().find(c => c.id === id) || { id, name: id, icon: "➕" }; }
+function catById(t) { return t.type === "income" ? incomeCatById(t.category) : expenseCatById(t.category); }
+
+/* ---- aggregation ---- */
+function fixedMonthlyTotal() {
+  return state.finance.fixedExpenses.filter(b => b.active !== false).reduce((a, b) => a + b.amount, 0);
+}
+function transactionsInMonth(key) {
+  return state.finance.transactions.filter(t => monthKey(t.date) === key);
+}
+function monthTotals(key) {
+  const txns = transactionsInMonth(key);
+  let income = 0, variable = 0, fixedPaid = 0;
+  txns.forEach(t => {
+    if (t.type === "income") income += t.amount;
+    else if (t.source === "fixed") fixedPaid += t.amount;
+    else variable += t.amount;
+  });
+  const fixedExpected = fixedMonthlyTotal();
+  return { income, variable, fixedPaid, fixedExpected, net: income - variable - fixedExpected };
+}
+function categorySpend(key, categoryId, sourceFilter) {
+  return transactionsInMonth(key)
+    .filter(t => t.type === "expense" && t.category === categoryId && (!sourceFilter || t.source === sourceFilter))
+    .reduce((a, t) => a + t.amount, 0);
+}
+// Rolling average variable spend for a category, over months that actually
+// have logged activity (avoids diluting the average with pre-tracking months).
+function categoryAverage(categoryId, months) {
+  const keys = lastNMonthKeys(months || 3);
+  const activeKeys = keys.filter(k => transactionsInMonth(k).length > 0);
+  if (!activeKeys.length) return 0;
+  const sum = activeKeys.reduce((a, k) => a + categorySpend(k, categoryId, "variable"), 0);
+  return sum / activeKeys.length;
+}
+function budgetStatus(categoryId, key) {
+  const target = state.finance.budgets[categoryId];
+  const spent = categorySpend(key || currentMonthKey(), categoryId, "variable");
+  if (!target) return { spent, target: null, pct: null, status: "none" };
+  const pct = Math.round((spent / target) * 100);
+  const status = pct >= 100 ? "over" : pct >= 80 ? "warn" : "good";
+  return { spent, target, pct, status };
+}
+
+/* ---- bills ---- */
+function billPaidThisMonth(billId, key) {
+  return transactionsInMonth(key || currentMonthKey()).some(t => t.fixedBillId === billId);
+}
+function toggleBillPaid(billId) {
+  const bill = state.finance.fixedExpenses.find(b => b.id === billId);
+  if (!bill) return;
+  const key = currentMonthKey();
+  const existing = state.finance.transactions.find(t => t.fixedBillId === billId && monthKey(t.date) === key);
+  if (existing) {
+    state.finance.transactions = state.finance.transactions.filter(t => t !== existing);
+  } else {
+    state.finance.transactions.push({
+      id: uid(), date: new Date().toISOString(), amount: bill.amount, category: bill.category,
+      note: bill.name, type: "expense", source: "fixed", fixedBillId: bill.id,
+    });
+  }
+  save();
+}
+function addFixedBill({ name, amount, category, dueDay }) {
+  state.finance.fixedExpenses.push({ id: uid(), name, amount, category, dueDay: dueDay || 1, active: true });
+  save();
+}
+function updateFixedBill(id, patch) {
+  const b = state.finance.fixedExpenses.find(x => x.id === id);
+  if (b) Object.assign(b, patch);
+  save();
+}
+function deleteFixedBill(id) {
+  state.finance.fixedExpenses = state.finance.fixedExpenses.filter(b => b.id !== id);
+  save();
+}
+
+/* ---- transactions & categories ---- */
+function addTransaction({ type, amount, category, note, date }) {
+  state.finance.transactions.push({
+    id: uid(), date: date || new Date().toISOString(), amount, category, note: note || "",
+    type, source: type === "income" ? "income" : "variable",
+  });
+  save();
+}
+function deleteTransaction(id) {
+  state.finance.transactions = state.finance.transactions.filter(t => t.id !== id);
+  save();
+}
+function addCustomCategory(name, type, icon) {
+  const id = "custom_" + uid();
+  state.finance.customCategories.push({ id, name, icon: icon || (type === "income" ? "➕" : "📦"), type });
+  save();
+  return id;
+}
+
+function txnLineHTML(t, deletable) {
+  const cat = catById(t);
+  const sign = t.type === "income" ? "+" : "−";
+  const color = t.type === "income" ? "#51cf66" : (t.source === "fixed" ? "#8a9bb0" : "#ff8787");
+  const delBtn = deletable && t.source !== "fixed"
+    ? `<button class="del-food" data-del-txn="${t.id}">✕</button>` : "";
+  return `<div class="food-item">
+    <div><div class="food-name">${cat.icon} ${esc(t.note || cat.name)}</div>
+      <div class="muted small">${esc(cat.name)}${t.source === "fixed" ? " · fixed" : ""}</div></div>
+    <div class="fin-txn-right">
+      <div class="fin-txn-stack">
+        <div class="fin-txn-amt" style="color:${color}">${sign}${fmtMoneyShort(t.amount)}</div>
+        <div class="muted small">${fmtDate(t.date)}</div>
+      </div>
+      ${delBtn}
+    </div>
+  </div>`;
+}
+
+/* ---- Finance: Home ---- */
+function renderFinHome() {
+  const key = currentMonthKey();
+  const t = monthTotals(key);
+  const netClass = t.net >= 0 ? "pos" : "neg";
+  const bills = state.finance.fixedExpenses.filter(b => b.active !== false);
+  const paidCount = bills.filter(b => billPaidThisMonth(b.id, key)).length;
+  const overBudget = allExpenseCategories()
+    .map(c => ({ c, bs: budgetStatus(c.id, key) }))
+    .filter(x => x.bs.target && x.bs.status === "over");
+  const recent = state.finance.transactions.slice().reverse().slice(0, 5);
+
+  return `
+    <header class="page-head">
+      <h1>Finance</h1>
+      <p class="muted">${fmtMonth(key)}</p>
+    </header>
+
+    <div class="card accent fin-net-card">
+      <div class="card-label">Net cash flow this month</div>
+      <div class="big fin-net ${netClass}">${t.net >= 0 ? "+" : "−"}${financeCurrency()}${Math.abs(Math.round(t.net)).toLocaleString()}</div>
+      <div class="fin-breakdown">
+        <span>💼 ${fmtMoneyShort(t.income)} income</span>
+        <span>📅 ${fmtMoneyShort(t.fixedExpected)} fixed</span>
+        <span>🛒 ${fmtMoneyShort(t.variable)} variable</span>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <button class="card center" data-nav="fin-log">
+        <div class="big">➕</div>
+        <div class="card-label">Log expense / income</div>
+      </button>
+      <button class="card center" data-nav="fin-bills">
+        <div class="big">${paidCount}/${bills.length}</div>
+        <div class="card-label">Bills paid this month</div>
+      </button>
+    </div>
+
+    ${overBudget.length ? `
+    <div class="card">
+      <div class="card-label">⚠️ Over budget</div>
+      ${overBudget.map(x => `<div class="vol-row"><span class="vol-label">${x.c.icon} ${esc(x.c.name)}</span>
+        <span class="vol-num" style="color:#ff8787">${fmtMoneyShort(x.bs.spent)} / ${fmtMoneyShort(x.bs.target)}</span></div>`).join("")}
+    </div>` : `
+    <div class="card"><div class="suggestion">✅ No categories over budget this month.</div></div>`}
+
+    <div class="card">
+      <div class="card-label">Recent transactions</div>
+      ${recent.length ? recent.map(t => txnLineHTML(t, false)).join("") : '<p class="muted center">Nothing logged yet — tap "Log expense / income" above.</p>'}
+    </div>
+  `;
+}
+function wireFinHome() {
+  $$("[data-nav]").forEach(b => b.addEventListener("click", () => navigate(b.dataset.nav)));
+}
+
+/* ---- Finance: Log ---- */
+function renderFinLog() {
+  const key = currentMonthKey();
+  const txns = transactionsInMonth(key).slice().reverse();
+  const expCats = allExpenseCategories();
+
+  return `
+    <header class="page-head"><h1>Log</h1><p class="muted">${fmtMonth(key)}</p></header>
+
+    <div class="card">
+      <div class="fin-type-toggle">
+        <button class="fin-type-btn active" data-type="expense">➖ Expense</button>
+        <button class="fin-type-btn" data-type="income">➕ Income</button>
+      </div>
+      <input id="fin-amount" class="input" inputmode="decimal" placeholder="Amount (${financeCurrency()})" />
+      <select id="fin-category" class="select block">${expCats.map(c => `<option value="${c.id}">${c.icon} ${esc(c.name)}</option>`).join("")}</select>
+      <input id="fin-note" class="input" placeholder="Note (optional)" />
+      <input id="fin-date" class="input" type="date" value="${todayKey()}" />
+      <button id="fin-add" class="btn primary block">Add</button>
+    </div>
+
+    <div class="card">
+      <div class="card-label">This month's transactions</div>
+      ${txns.length ? txns.map(t => txnLineHTML(t, true)).join("") : '<p class="muted center">No transactions this month yet.</p>'}
+    </div>
+  `;
+}
+function wireFinLog() {
+  let curType = "expense";
+  const typeBtns = $$(".fin-type-btn");
+  const catSelect = $("#fin-category");
+  typeBtns.forEach(b => b.addEventListener("click", () => {
+    curType = b.dataset.type;
+    typeBtns.forEach(x => x.classList.toggle("active", x === b));
+    const cats = curType === "income" ? allIncomeCategories() : allExpenseCategories();
+    catSelect.innerHTML = cats.map(c => `<option value="${c.id}">${c.icon} ${esc(c.name)}</option>`).join("");
+  }));
+  $("#fin-add")?.addEventListener("click", () => {
+    const amount = parseFloat($("#fin-amount").value);
+    if (isNaN(amount) || amount <= 0) { toast("Enter a valid amount"); return; }
+    const category = catSelect.value;
+    const note = $("#fin-note").value.trim();
+    const dateVal = $("#fin-date").value || todayKey();
+    addTransaction({ type: curType, amount, category, note, date: new Date(dateVal + "T12:00:00").toISOString() });
+    toast(`${curType === "income" ? "Income" : "Expense"} logged ✔`);
+    render();
+  });
+  $$("[data-del-txn]").forEach(b => b.addEventListener("click", () => {
+    deleteTransaction(b.dataset.delTxn); render(); toast("Deleted");
+  }));
+}
+
+/* ---- Finance: Bills ---- */
+function renderFinBills() {
+  const bills = state.finance.fixedExpenses;
+  const key = currentMonthKey();
+  const total = fixedMonthlyTotal();
+  const expCats = allExpenseCategories();
+
+  const rows = bills.length ? bills.slice().sort((a, b) => a.dueDay - b.dueDay).map(b => {
+    const cat = expenseCatById(b.category);
+    const paid = billPaidThisMonth(b.id, key);
+    return `<div class="bill-row ${paid ? "paid" : ""}">
+      <button class="bill-check" data-toggle-bill="${b.id}">${paid ? "✓" : ""}</button>
+      <div class="bill-info">
+        <div class="bill-name">${cat.icon} ${esc(b.name)}</div>
+        <div class="muted small">${esc(cat.name)} · due day ${b.dueDay}${b.active === false ? " · inactive" : ""}</div>
+      </div>
+      <div class="bill-amt">${fmtMoneyShort(b.amount)}</div>
+      <button class="icon-btn" data-edit-bill="${b.id}">✎</button>
+    </div>`;
+  }).join("") : `<p class="muted center">No fixed bills yet. Add your rent, subscriptions, insurance, etc. below — you set them up once and they auto-count every month.</p>`;
+
+  return `
+    <header class="page-head"><h1>Bills</h1><p class="muted">${fmtMonth(key)} · fixed total ${fmtMoneyShort(total)}/mo</p></header>
+
+    <div class="card">
+      <div class="card-label">This month's bills</div>
+      ${rows}
+    </div>
+
+    <div class="card">
+      <div class="card-label">Add a fixed bill</div>
+      <input id="bill-name" class="input" placeholder="Name (e.g. Rent, Netflix)" />
+      <div class="macro-inputs">
+        <input id="bill-amount" class="input" inputmode="decimal" placeholder="Amount (${financeCurrency()})" />
+        <input id="bill-day" class="input" inputmode="numeric" placeholder="Due day (1–31)" />
+      </div>
+      <select id="bill-category" class="select block">${expCats.map(c => `<option value="${c.id}">${c.icon} ${esc(c.name)}</option>`).join("")}</select>
+      <button id="bill-add" class="btn primary block">Add bill</button>
+    </div>
+  `;
+}
+function wireFinBills() {
+  $("#bill-add")?.addEventListener("click", () => {
+    const name = $("#bill-name").value.trim();
+    const amount = parseFloat($("#bill-amount").value);
+    const dueDay = Math.min(31, Math.max(1, parseInt($("#bill-day").value, 10) || 1));
+    const category = $("#bill-category").value;
+    if (!name || isNaN(amount) || amount <= 0) { toast("Enter a name and amount"); return; }
+    addFixedBill({ name, amount, category, dueDay });
+    render(); toast("Bill added ✔");
+  });
+  $$("[data-toggle-bill]").forEach(b => b.addEventListener("click", () => {
+    toggleBillPaid(b.dataset.toggleBill); render();
+  }));
+  $$("[data-edit-bill]").forEach(b => b.addEventListener("click", () => {
+    const bill = state.finance.fixedExpenses.find(x => x.id === b.dataset.editBill);
+    if (bill) showBillEditModal(bill);
+  }));
+}
+function showBillEditModal(bill) {
+  const expCats = allExpenseCategories();
+  const modal = document.createElement("div");
+  modal.className = "modal-backdrop";
+  modal.innerHTML = `
+    <div class="modal">
+      <button class="modal-close">✕</button>
+      <h2>Edit bill</h2>
+      <input id="eb-name" class="input" value="${esc(bill.name)}" />
+      <div class="macro-inputs">
+        <input id="eb-amount" class="input" inputmode="decimal" value="${bill.amount}" />
+        <input id="eb-day" class="input" inputmode="numeric" value="${bill.dueDay}" />
+      </div>
+      <select id="eb-category" class="select block">${expCats.map(c => `<option value="${c.id}" ${c.id === bill.category ? "selected" : ""}>${c.icon} ${esc(c.name)}</option>`).join("")}</select>
+      <label class="check"><input type="checkbox" id="eb-active" ${bill.active !== false ? "checked" : ""}/> Active (counts toward monthly total)</label>
+      <button id="eb-save" class="btn primary block">Save changes</button>
+      <button id="eb-delete" class="btn block danger">Delete bill</button>
+    </div>`;
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal || e.target.classList.contains("modal-close")) modal.remove();
+  });
+  modal.querySelector("#eb-save").addEventListener("click", () => {
+    const name = modal.querySelector("#eb-name").value.trim();
+    const amount = parseFloat(modal.querySelector("#eb-amount").value);
+    const dueDay = Math.min(31, Math.max(1, parseInt(modal.querySelector("#eb-day").value, 10) || 1));
+    const category = modal.querySelector("#eb-category").value;
+    const active = modal.querySelector("#eb-active").checked;
+    if (!name || isNaN(amount) || amount <= 0) { toast("Enter a name and amount"); return; }
+    updateFixedBill(bill.id, { name, amount, category, dueDay, active });
+    modal.remove(); render(); toast("Bill updated ✔");
+  });
+  modal.querySelector("#eb-delete").addEventListener("click", () => {
+    if (confirm(`Delete "${bill.name}"? This won't remove past logged transactions.`)) {
+      deleteFixedBill(bill.id); modal.remove(); render(); toast("Bill deleted");
+    }
+  });
+  document.body.appendChild(modal);
+}
+
+/* ---- Finance: Budgets ---- */
+function renderFinBudgets() {
+  const key = currentMonthKey();
+  const cats = allExpenseCategories();
+  const rows = cats.map(c => {
+    const bs = budgetStatus(c.id, key);
+    const avg = categoryAverage(c.id, 3);
+    const target = state.finance.budgets[c.id] || "";
+    const pct = bs.target ? Math.min(100, bs.pct) : 0;
+    const color = bs.status === "over" ? "#ff8787" : bs.status === "warn" ? "#fcc419" : "#51cf66";
+    return `<div class="budget-row">
+      <div class="budget-head">
+        <span class="budget-name">${c.icon} ${esc(c.name)}</span>
+        <input class="budget-input" data-budget-cat="${c.id}" inputmode="decimal" placeholder="no target" value="${target}" />
+      </div>
+      ${bs.target
+        ? `<div class="bar"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
+           <div class="muted small">${fmtMoneyShort(bs.spent)} / ${fmtMoneyShort(bs.target)} spent${avg ? ` · avg ${fmtMoneyShort(avg)}/mo` : ""}</div>`
+        : avg ? `<div class="muted small">Spent ${fmtMoneyShort(bs.spent)} so far · avg ${fmtMoneyShort(avg)}/mo</div>` : ""}
+    </div>`;
+  }).join("");
+
+  return `
+    <header class="page-head"><h1>Budgets</h1><p class="muted">${fmtMonth(key)} · targets per category</p></header>
+
+    <div class="card">
+      <div class="card-label">Currency symbol</div>
+      <input id="fin-currency" class="input" value="${esc(financeCurrency())}" maxlength="3" placeholder="$" />
+    </div>
+
+    <div class="card">
+      <div class="card-label">Monthly budget targets</div>
+      ${rows}
+      <div class="muted small">Leave blank for no target. Bars compare this month's actual spend to your target; "avg" is your rolling average from logged months.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Add a custom category</div>
+      <input id="cc-name" class="input" placeholder="Category name" />
+      <select id="cc-type" class="select block">
+        <option value="expense">Expense category</option>
+        <option value="income">Income category</option>
+      </select>
+      <button id="cc-add" class="btn block">+ Add category</button>
+    </div>
+
+    <div class="card">
+      <div class="card-label">App</div>
+      <button id="switch-mode-fin" class="btn block">🔀 Switch app (Fitness / Finance)</button>
+    </div>
+  `;
+}
+function wireFinBudgets() {
+  $$("[data-budget-cat]").forEach(inp => inp.addEventListener("change", () => {
+    const v = parseFloat(inp.value);
+    if (isNaN(v) || v <= 0) delete state.finance.budgets[inp.dataset.budgetCat];
+    else state.finance.budgets[inp.dataset.budgetCat] = v;
+    save(); render();
+  }));
+  $("#fin-currency")?.addEventListener("change", (e) => {
+    state.finance.currency = e.target.value.trim() || "$";
+    save(); render();
+  });
+  $("#cc-add")?.addEventListener("click", () => {
+    const name = $("#cc-name").value.trim();
+    if (!name) { toast("Enter a category name"); return; }
+    addCustomCategory(name, $("#cc-type").value);
+    render(); toast("Category added ✔");
+  });
+  $("#switch-mode-fin")?.addEventListener("click", switchMode);
+}
+
+/* ---- Finance: Reports ---- */
+let finReportMonth = null;
+function renderFinReports() {
+  const months = lastNMonthKeys(12).reverse();
+  const key = finReportMonth || currentMonthKey();
+  const t = monthTotals(key);
+  const savingsRate = t.income > 0 ? Math.round((t.net / t.income) * 100) : null;
+
+  const catBreak = allExpenseCategories()
+    .map(c => ({ c, spent: categorySpend(key, c.id, "variable") }))
+    .filter(x => x.spent > 0)
+    .sort((a, b) => b.spent - a.spent);
+  const maxSpend = Math.max(1, ...catBreak.map(x => x.spent));
+
+  const trendKeys = lastNMonthKeys(6);
+  const trendData = trendKeys.map(k => ({ key: k, ...monthTotals(k) }));
+  const maxAbs = Math.max(1, ...trendData.map(d => Math.abs(d.net)));
+
+  return `
+    <header class="page-head">
+      <h1>Reports</h1>
+      <select id="report-month" class="select">${months.map(k => `<option value="${k}" ${k === key ? "selected" : ""}>${fmtMonth(k)}</option>`).join("")}</select>
+    </header>
+
+    <div class="card">
+      <div class="card-label">Monthly summary</div>
+      <div class="vol-row"><span class="vol-label">💼 Income</span><span class="vol-num">${fmtMoneyShort(t.income)}</span></div>
+      <div class="vol-row"><span class="vol-label">📅 Fixed</span><span class="vol-num">${fmtMoneyShort(t.fixedExpected)}</span></div>
+      <div class="vol-row"><span class="vol-label">🛒 Variable</span><span class="vol-num">${fmtMoneyShort(t.variable)}</span></div>
+      <div class="vol-row"><span class="vol-label"><strong>Net</strong></span><span class="vol-num" style="color:${t.net >= 0 ? '#51cf66' : '#ff8787'}"><strong>${t.net >= 0 ? "+" : "−"}${fmtMoneyShort(Math.abs(t.net))}</strong></span></div>
+      ${savingsRate !== null ? `<div class="muted small">Savings rate: ${savingsRate}%</div>` : ""}
+    </div>
+
+    <div class="card">
+      <div class="card-label">Spending by category</div>
+      ${catBreak.length ? catBreak.map(x => `
+        <div class="vol-row">
+          <span class="vol-label">${x.c.icon} ${esc(x.c.name)}</span>
+          <div class="bar"><div class="bar-fill" style="width:${(x.spent / maxSpend) * 100}%;background:#ff9f43"></div></div>
+          <span class="vol-num">${fmtMoneyShort(x.spent)}</span>
+        </div>`).join("") : '<p class="muted center">No variable spending logged this month.</p>'}
+    </div>
+
+    <div class="card">
+      <div class="card-label">Net cash flow — last 6 months</div>
+      ${trendData.map(d => `
+        <div class="vol-row">
+          <span class="vol-label">${fmtMonth(d.key).split(" ")[0].slice(0, 3)}</span>
+          <div class="bar"><div class="bar-fill" style="width:${(Math.abs(d.net) / maxAbs) * 100}%;background:${d.net >= 0 ? '#51cf66' : '#ff8787'}"></div></div>
+          <span class="vol-num">${d.net >= 0 ? "+" : "−"}${fmtMoneyShort(Math.abs(d.net))}</span>
+        </div>`).join("")}
+    </div>
+  `;
+}
+function wireFinReports() {
+  $("#report-month")?.addEventListener("change", (e) => { finReportMonth = e.target.value; render(); });
 }
 
 /* ============================ CALC / UI BITS ============================== */
