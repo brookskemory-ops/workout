@@ -2245,9 +2245,20 @@ function dailyPrinciple() {
 /* ============================ BOOT ======================================= */
 render();
 
-// register service worker for offline / installability
+// register service worker for offline / installability, and auto-update:
+// force an immediate update check (bypassing the browser's ~24h throttle on
+// automatic checks) and reload once when a new version takes control, so an
+// installed PWA never gets stuck running stale cached code.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js").catch(() => {});
+    navigator.serviceWorker.register("./sw.js").then((reg) => {
+      reg.update().catch(() => {});
+      let reloading = false;
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (reloading) return;
+        reloading = true;
+        window.location.reload();
+      });
+    }).catch(() => {});
   });
 }
