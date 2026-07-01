@@ -53,11 +53,29 @@ function jumpMult() { return (EXPERIENCE[state.profile.experience] || EXPERIENCE
 let state = loadState();
 
 /* ----------------------------- storage ------------------------------------ */
+// Recursively backfills missing keys from `defaults` into `saved`, so a
+// feature added later (e.g. new fields under state.finance) doesn't leave
+// `undefined` holes in state that was saved before that feature existed.
+// Arrays and non-plain-objects are taken from `saved` as-is (never merged
+// element-wise) — only plain object keys get filled in one level at a time.
+function mergeDefaults(defaults, saved) {
+  const isPlainObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+  if (!isPlainObj(defaults) || !isPlainObj(saved)) {
+    return saved !== undefined ? saved : defaults;
+  }
+  const out = { ...defaults };
+  for (const key of Object.keys(saved)) {
+    out[key] = isPlainObj(defaults[key]) && isPlainObj(saved[key])
+      ? mergeDefaults(defaults[key], saved[key])
+      : saved[key];
+  }
+  return out;
+}
 function loadState() {
   try {
     const raw = localStorage.getItem(STORE_KEY);
     if (!raw) return structuredClone(DEFAULT_STATE);
-    return Object.assign(structuredClone(DEFAULT_STATE), JSON.parse(raw));
+    return mergeDefaults(structuredClone(DEFAULT_STATE), JSON.parse(raw));
   } catch (e) {
     console.warn("Failed to load state", e);
     return structuredClone(DEFAULT_STATE);
@@ -1304,7 +1322,7 @@ function importData(e) {
   const reader = new FileReader();
   reader.onload = () => {
     try {
-      state = Object.assign(structuredClone(DEFAULT_STATE), JSON.parse(reader.result));
+      state = mergeDefaults(structuredClone(DEFAULT_STATE), JSON.parse(reader.result));
       save(); render(); toast("Data imported ✔");
     } catch { toast("Invalid file"); }
   };
