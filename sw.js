@@ -1,6 +1,6 @@
 /* Monster Mode service worker — offline-first caching.
    Bump CACHE when you change any cached asset to force an update. */
-const CACHE = "monster-mode-v4";
+const CACHE = "monster-mode-v5";
 const ASSETS = [
   "./",
   "./index.html",

@@ -119,13 +119,18 @@ const MODES = {
       { route: "progress",  ico: "📈", label: "Progress" },
       { route: "settings",  ico: "⚙️", label: "Setup" },
     ],
+    // routes reachable via a button/link but not shown in the tab bar
+    extraRoutes: ["builder"],
+    extraActiveTab: { builder: "settings" }, // which tab to highlight while on an extra route
     render: {
       dashboard: renderDashboard, workout: renderWorkout, food: renderFood,
       library: renderLibrary, progress: renderProgress, settings: renderSettings,
+      builder: renderBuilder,
     },
     wire: {
       dashboard: wireDashboard, workout: wireWorkout, food: wireFood,
       library: wireLibrary, progress: wireProgress, settings: wireSettings,
+      builder: wireBuilder,
     },
   },
   finance: {
@@ -152,7 +157,7 @@ const MODES = {
 function currentRoute() {
   const mode = MODES[appMode];
   const r = location.hash.replace("#", "");
-  const valid = mode.tabs.some(t => t.route === r);
+  const valid = mode.tabs.some(t => t.route === r) || (mode.extraRoutes || []).includes(r);
   return valid ? r : mode.default;
 }
 function navigate(route) {
@@ -192,7 +197,8 @@ function render() {
   }
   const mode = MODES[appMode];
   const route = currentRoute();
-  $$(".tab").forEach(t => t.classList.toggle("active", t.dataset.route === route));
+  const activeTab = (mode.extraActiveTab && mode.extraActiveTab[route]) || route;
+  $$(".tab").forEach(t => t.classList.toggle("active", t.dataset.route === activeTab));
   const view = $("#view");
   view.scrollTop = 0;
   view.innerHTML = mode.render[route]();
@@ -820,17 +826,19 @@ function showExerciseModal(exId) {
   document.body.appendChild(modal);
 }
 
-// Alternatives that train the same primary muscle group as `exId`.
-// Equipment-matched options are listed first.
+// Every exercise except the current one is a valid swap target — same-muscle,
+// equipment-matched options are just sorted to the top for convenience.
 function swapCandidates(exId) {
   const cur = EXERCISE_BY_ID[exId];
   if (!cur) return [];
   const group = primaryGroup(cur);
   const avail = state.programOpts.equipment || [];
   return EXERCISES
-    .filter(ex => ex.id !== exId && primaryGroup(ex) === group)
+    .filter(ex => ex.id !== exId)
     .sort((a, b) => {
-      // prefer same equipment availability, then same type (compound/iso), then name
+      const aGroup = primaryGroup(a) === group ? 0 : 1;
+      const bGroup = primaryGroup(b) === group ? 0 : 1;
+      if (aGroup !== bGroup) return aGroup - bGroup;
       const aAvail = !avail.length || avail.includes(a.equipment) ? 0 : 1;
       const bAvail = !avail.length || avail.includes(b.equipment) ? 0 : 1;
       if (aAvail !== bAvail) return aAvail - bAvail;
@@ -843,25 +851,52 @@ function swapCandidates(exId) {
 
 function showSwapModal(dayIdx, idx, exId) {
   const cur = EXERCISE_BY_ID[exId];
+  const group = primaryGroup(cur);
   const cands = swapCandidates(exId);
-  const list = cands.map(ex => `
-    <button class="lib-item" data-pick="${ex.id}">
+  const sameGroup = cands.filter(ex => primaryGroup(ex) === group);
+  const others = cands.filter(ex => primaryGroup(ex) !== group);
+  const othersByGroup = {};
+  others.forEach(ex => { const g = primaryGroup(ex); (othersByGroup[g] = othersByGroup[g] || []).push(ex); });
+  const order = ["chest","back","sideDelts","rearDelts","frontDelts","biceps","triceps","quads","hamstrings","glutes","calves","abs"];
+  const itemHTML = (ex) => `<button class="lib-item" data-pick="${ex.id}">
       <span>${esc(ex.name)}</span>
       <span class="tag ${ex.type}">${esc(ex.equipment)}</span>
-    </button>`).join("");
+    </button>`;
+  const sameGroupHTML = sameGroup.length ? `
+    <div class="lib-group">
+      <h2 class="lib-h" style="border-color:${MUSCLES[group].color}">Same target: ${MUSCLES[group].label}</h2>
+      ${sameGroup.map(itemHTML).join("")}
+    </div>` : "";
+  const othersHTML = order.filter(g => othersByGroup[g]).map(g => `
+    <div class="lib-group">
+      <h2 class="lib-h" style="border-color:${MUSCLES[g].color}">${MUSCLES[g].label}</h2>
+      ${othersByGroup[g].map(itemHTML).join("")}
+    </div>`).join("");
+
   const modal = document.createElement("div");
   modal.className = "modal-backdrop";
   modal.innerHTML = `
     <div class="modal">
       <button class="modal-close">✕</button>
       <h2>Swap exercise</h2>
-      <p class="muted small">Replacing <strong>${esc(cur.name)}</strong> · same target: ${MUSCLES[primaryGroup(cur)].label}</p>
-      <div class="swap-list">${list || '<p class="muted">No alternatives available.</p>'}</div>
+      <p class="muted small">Replacing <strong>${esc(cur.name)}</strong> — swap to any of the ${EXERCISES.length} exercises in the library, not just ${MUSCLES[group].label}.</p>
+      <input id="swap-search" class="input" placeholder="🔍 Search all exercises…" />
+      <div class="swap-list">${sameGroupHTML}${othersHTML}</div>
     </div>`;
   modal.addEventListener("click", (e) => {
     if (e.target === modal || e.target.classList.contains("modal-close")) { modal.remove(); return; }
     const pick = e.target.closest("[data-pick]");
     if (pick) { applySwap(dayIdx, idx, pick.dataset.pick); modal.remove(); }
+  });
+  modal.querySelector("#swap-search").addEventListener("input", (e) => {
+    const q = e.target.value.toLowerCase();
+    modal.querySelectorAll(".lib-item").forEach(it => {
+      it.style.display = it.textContent.toLowerCase().includes(q) ? "" : "none";
+    });
+    modal.querySelectorAll(".lib-group").forEach(g => {
+      const any = [...g.querySelectorAll(".lib-item")].some(it => it.style.display !== "none");
+      g.style.display = any ? "" : "none";
+    });
   });
   document.body.appendChild(modal);
 }
@@ -1217,9 +1252,18 @@ function renderSettings() {
     </div>
 
     <div class="card">
+      <div class="card-label">Your program</div>
+      ${state.program ? `
+        <div class="big" style="font-size:1.3rem">${esc(state.program.splitName)}</div>
+        <p class="muted small">${state.program.days.length} day${state.program.days.length===1?"":"s"} · ${o.custom ? "built by you" : "auto-generated"}</p>
+      ` : `<p class="muted">No program yet — generate one below, or build your own.</p>`}
+      <button id="open-builder" class="btn primary block">✏️ ${state.program ? "Edit in Program Builder" : "Build your own program"}</button>
+    </div>
+
+    <div class="card">
       <div class="card-label">Auto-generate program</div>
       <select id="s-split" class="select block">${splitOptions}</select>
-      <p class="muted small" id="split-blurb">${esc(SPLITS[o.split].blurb)}</p>
+      <p class="muted small" id="split-blurb">${esc((SPLITS[o.split] || SPLITS.ppl6).blurb)}</p>
       <div class="card-label">Available equipment</div>
       <div class="checks">${equipChecks}</div>
       <button id="gen-program" class="btn primary block lg">⚡ Generate balanced program</button>
@@ -1298,15 +1342,181 @@ function wireSettings() {
     }
   });
   $("#switch-mode")?.addEventListener("click", switchMode);
+  $("#open-builder")?.addEventListener("click", openProgramBuilder);
 }
 
 function doGenerate() {
   const split = $("#s-split").value;
   const equipment = $$(".equip:checked").map(c => c.value);
-  state.programOpts = { split, equipment };
+  state.programOpts = { split, equipment, custom: false };
   state.program = generateProgram({ split, equipment, targets: targets() });
   save(); render();
   toast("Program generated! 💪");
+}
+
+/* ============================ PROGRAM BUILDER ============================= */
+// A working draft, separate from state.program until explicitly saved, so
+// in-progress edits never clobber the active program if the user backs out.
+let programDraft = null;
+
+function openProgramBuilder() {
+  programDraft = state.program
+    ? { splitName: state.program.splitName, days: structuredClone(state.program.days) }
+    : { splitName: "My Program", days: [] };
+  navigate("builder");
+}
+
+function renderBuilder() {
+  if (!programDraft) {
+    programDraft = state.program
+      ? { splitName: state.program.splitName, days: structuredClone(state.program.days) }
+      : { splitName: "My Program", days: [] };
+  }
+  const daysHTML = programDraft.days.map((day, di) => `
+    <div class="card builder-day">
+      <div class="builder-day-head">
+        <input class="input builder-day-name" data-day-name="${di}" value="${esc(day.name)}" placeholder="Day name" />
+        <button class="icon-btn danger" data-del-day="${di}" title="Delete day">🗑</button>
+      </div>
+      <div class="builder-ex-list">
+        ${day.exercises.map((item, ei) => {
+          const ex = EXERCISE_BY_ID[item.exerciseId];
+          const group = ex ? primaryGroup(ex) : null;
+          return `<div class="builder-ex-row">
+            <div class="builder-ex-info">
+              <div class="bill-name">${ex ? esc(ex.name) : item.exerciseId}</div>
+              <div class="muted small">${group ? MUSCLES[group].label : ""}</div>
+            </div>
+            <input class="builder-num" data-field="sets" data-day="${di}" data-ex-idx="${ei}" inputmode="numeric" value="${item.sets}" title="Sets" />
+            <input class="builder-num" data-field="repLo" data-day="${di}" data-ex-idx="${ei}" inputmode="numeric" value="${item.repRange[0]}" title="Rep min" />
+            <span class="muted">–</span>
+            <input class="builder-num" data-field="repHi" data-day="${di}" data-ex-idx="${ei}" inputmode="numeric" value="${item.repRange[1]}" title="Rep max" />
+            <button class="icon-btn danger" data-del-ex="${di}:${ei}" title="Remove">✕</button>
+          </div>`;
+        }).join("") || '<p class="muted small">No exercises yet — add one below.</p>'}
+      </div>
+      <button class="btn small" data-add-ex="${di}">+ Add exercise</button>
+    </div>`).join("");
+
+  return `
+    <header class="page-head"><h1>Program Builder</h1>
+      <p class="muted">Pick any exercise for any day — full control.</p>
+    </header>
+    <div class="card">
+      <div class="card-label">Program name</div>
+      <input id="builder-name" class="input" value="${esc(programDraft.splitName)}" />
+    </div>
+    ${daysHTML}
+    <button id="add-day" class="btn block">+ Add day</button>
+    <button id="save-builder" class="btn primary block lg">💾 Save program</button>
+    <button id="cancel-builder" class="btn block">Cancel</button>
+  `;
+}
+
+function wireBuilder() {
+  $("#builder-name")?.addEventListener("change", (e) => {
+    programDraft.splitName = e.target.value.trim() || "My Program";
+  });
+  $("#add-day")?.addEventListener("click", () => {
+    programDraft.days.push({ name: `Day ${programDraft.days.length + 1}`, exercises: [] });
+    render();
+  });
+  $$("[data-del-day]").forEach(b => b.addEventListener("click", () => {
+    if (confirm("Delete this day and its exercises?")) {
+      programDraft.days.splice(+b.dataset.delDay, 1);
+      render();
+    }
+  }));
+  $$("[data-day-name]").forEach(inp => inp.addEventListener("change", () => {
+    programDraft.days[+inp.dataset.dayName].name = inp.value.trim() || "Day";
+  }));
+  $$("[data-add-ex]").forEach(b => b.addEventListener("click", () => showExercisePicker(+b.dataset.addEx)));
+  $$("[data-del-ex]").forEach(b => b.addEventListener("click", () => {
+    const [di, ei] = b.dataset.delEx.split(":").map(Number);
+    programDraft.days[di].exercises.splice(ei, 1);
+    render();
+  }));
+  $$(".builder-num").forEach(inp => inp.addEventListener("change", () => {
+    const di = +inp.dataset.day, ei = +inp.dataset.exIdx, field = inp.dataset.field;
+    const item = programDraft.days[di]?.exercises[ei];
+    if (!item) return;
+    const v = parseInt(inp.value, 10);
+    if (isNaN(v) || v <= 0) { render(); return; } // snap back to the last valid value
+    if (field === "sets") item.sets = v;
+    else if (field === "repLo") item.repRange[0] = v;
+    else if (field === "repHi") item.repRange[1] = v;
+  }));
+  $("#save-builder")?.addEventListener("click", saveBuilderProgram);
+  $("#cancel-builder")?.addEventListener("click", () => { programDraft = null; navigate("settings"); });
+}
+
+// Full-library exercise picker for the builder — search + browse by muscle,
+// with zero restriction on which muscle group can go on which day.
+function showExercisePicker(dayIdx) {
+  const groups = {};
+  for (const ex of EXERCISES) { const g = primaryGroup(ex); (groups[g] = groups[g] || []).push(ex); }
+  const order = ["chest","back","sideDelts","rearDelts","frontDelts","biceps","triceps","quads","hamstrings","glutes","calves","abs"];
+  const sections = order.filter(g => groups[g]).map(g => `
+    <div class="lib-group">
+      <h2 class="lib-h" style="border-color:${MUSCLES[g].color}">${MUSCLES[g].label}</h2>
+      ${groups[g].map(ex => `<button class="lib-item" data-pick-ex="${ex.id}">
+        <span>${esc(ex.name)}</span><span class="tag ${ex.type}">${esc(ex.equipment)}</span>
+      </button>`).join("")}
+    </div>`).join("");
+
+  const modal = document.createElement("div");
+  modal.className = "modal-backdrop";
+  modal.innerHTML = `
+    <div class="modal">
+      <button class="modal-close">✕</button>
+      <h2>Add exercise</h2>
+      <p class="muted small">Any exercise can go on any day — search or browse all ${EXERCISES.length}.</p>
+      <input id="picker-search" class="input" placeholder="🔍 Search all exercises…" />
+      <div id="picker-list">${sections}</div>
+    </div>`;
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal || e.target.classList.contains("modal-close")) { modal.remove(); return; }
+    const pick = e.target.closest("[data-pick-ex]");
+    if (pick) {
+      const ex = EXERCISE_BY_ID[pick.dataset.pickEx];
+      programDraft.days[dayIdx].exercises.push({
+        exerciseId: ex.id, sets: ex.sets, repRange: ex.repRange.slice(), rir: ex.rir,
+      });
+      modal.remove();
+      render();
+    }
+  });
+  modal.querySelector("#picker-search").addEventListener("input", (e) => {
+    const q = e.target.value.toLowerCase();
+    modal.querySelectorAll(".lib-item").forEach(it => {
+      it.style.display = it.textContent.toLowerCase().includes(q) ? "" : "none";
+    });
+    modal.querySelectorAll(".lib-group").forEach(g => {
+      const any = [...g.querySelectorAll(".lib-item")].some(it => it.style.display !== "none");
+      g.style.display = any ? "" : "none";
+    });
+  });
+  document.body.appendChild(modal);
+}
+
+function saveBuilderProgram() {
+  const cleanDays = programDraft.days.filter(d => d.exercises.length);
+  if (!cleanDays.length) { toast("Add at least one exercise to a day first"); return; }
+  const weeklyVolume = computeWeeklyVolume(cleanDays);
+  state.program = {
+    splitKey: "custom",
+    splitName: programDraft.splitName || "My Program",
+    blurb: "Custom program you built yourself.",
+    days: cleanDays,
+    weeklyVolume,
+    coverage: assessCoverage(weeklyVolume, targets()),
+    generatedAt: new Date().toISOString(),
+  };
+  state.programOpts = { split: "custom", equipment: state.programOpts.equipment || [], custom: true };
+  programDraft = null;
+  save();
+  toast("Program saved ✔");
+  navigate("settings");
 }
 
 function exportData() {

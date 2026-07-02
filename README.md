@@ -60,11 +60,24 @@ back anytime without needing to reload.
 | Tab | What it does |
 |-----|--------------|
 | **Home** | Next workout, calories & protein vs. goal, day streak, water / steps / cardio quick-log, this-week's volume per muscle, daily training principle. |
-| **Workout** | Your generated day with per-exercise **progressive-overload suggestions** (double progression), set-by-set weight × reps logging, an auto-starting **rest timer**, plate + warm-up calculator, exercise swap, and tap-for-info on every movement. |
+| **Workout** | Your program's day with per-exercise **progressive-overload suggestions** (double progression), set-by-set weight × reps logging, an auto-starting **rest timer**, plate + warm-up calculator, **exercise swap to anything in the library** (not restricted to the same muscle), and tap-for-info on every movement. |
 | **Food** | Macro summary, one-tap **quick-add** common foods, custom entries, today's meal list. |
 | **Library** | 74 exercises across every muscle group — searchable, each with a description, step-by-step cues, target muscles, rep range / RIR, and a science note. |
 | **Progress** | Bodyweight trend, body measurements, estimated strength (e1RM), PR history with celebrations, cardio history, weekly volume. |
-| **Setup** | Profile & goals, experience level, **auto-generate / re-roll** your program, equipment filter, export / import / reset data. |
+| **Setup** | Profile & goals, experience level, **auto-generate / re-roll** your program, a **Program Builder** to create your own workout by hand (any exercise, any day), equipment filter, export / import / reset data. |
+
+### Building your own program
+
+Setup → **Build your own program** (or **Edit in Program Builder** if you already have
+one) opens a builder where you can:
+- Name the program and add/remove days freely.
+- Add **any exercise from the full 74-move library to any day** — there's no muscle-group
+  restriction, so an arm day can include calves, a "pull" day can include quads, etc.
+- Edit the sets and rep range for each exercise inline.
+
+A hand-built program runs through the exact same workout logger, progression
+suggestions, plate calculator, and weekly-volume coverage report as an auto-generated
+one — it's just built by you instead of the algorithm.
 
 ## 💰 Finance mode
 

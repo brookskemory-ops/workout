@@ -69,8 +69,16 @@ variable**, tracked against a budget target and your own rolling average.
 
 ## 🚧 Phase 1 — Daily-driver quality of life
 High-value, self-contained, used every session.
-1. **Exercise swap button** ✅ — sub any movement mid-workout for another that hits the
-   same muscle (equipment-aware). Persists into the program.
+1. **Exercise swap button** ✅ — sub any movement mid-workout for **any exercise in the
+   library** (same-muscle, equipment-matched options are just sorted to the top for
+   convenience — nothing is off-limits). Persists into the program.
+1b. **Program Builder** ✅ — build your own workout from scratch instead of only
+    auto-generating: name it, add/remove days, and add any exercise from the full
+    library to any day (no muscle-group restriction), editing sets and rep range
+    per exercise. Reachable from Setup → "Build your own program" (or "Edit in
+    Program Builder" to hand-tune an existing auto-generated one). Runs through the
+    same workout logger, progression suggestions, plate calculator, and coverage
+    report as generated programs.
 2. **Plate + warm-up calculator** ✅ — for a target working weight, shows the exact plate
    loadout per side and an auto-generated warm-up ramp (bar → 50% → 70% → 85% → work).
    Configurable bar weight; unit-aware plate set.
