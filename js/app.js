@@ -1783,10 +1783,29 @@ function renderGoalsTeaser() {
 }
 
 /* ---- Finance: Log ---- */
+// Live "you have $X left in this category" style hint for the category
+// currently selected in the Log form. Blank for income (budgets are
+// expense-only) or when the category has no budget set.
+function categoryBudgetHint(categoryId) {
+  if (!categoryId) return "";
+  const bs = budgetStatus(categoryId);
+  if (!bs.target) return `<span class="muted">No budget set for this category — set one in Budgets.</span>`;
+  const color = bs.status === "over" ? "#ff8787" : bs.status === "warn" ? "#fcc419" : "#51cf66";
+  const remaining = bs.target - bs.spent;
+  return `<span style="color:${color}">Budget: ${fmtMoneyShort(bs.target)}/mo · ${fmtMoneyShort(bs.spent)} spent so far
+    (${remaining >= 0 ? `${fmtMoneyShort(remaining)} left` : `${fmtMoneyShort(-remaining)} over`})</span>`;
+}
+
 function renderFinLog() {
   const key = currentMonthKey();
   const txns = transactionsInMonth(key).slice().reverse();
   const expCats = allExpenseCategories();
+
+  // every expense category that has an active budget, for the at-a-glance list
+  const budgetedCats = expCats
+    .map(c => ({ c, bs: budgetStatus(c.id, key) }))
+    .filter(x => x.bs.target)
+    .sort((a, b) => (b.bs.pct || 0) - (a.bs.pct || 0));
 
   return `
     <header class="page-head"><h1>Log</h1><p class="muted">${fmtMonth(key)}</p></header>
@@ -1798,10 +1817,25 @@ function renderFinLog() {
       </div>
       <input id="fin-amount" class="input" inputmode="decimal" placeholder="Amount (${financeCurrency()})" />
       <select id="fin-category" class="select block">${expCats.map(c => `<option value="${c.id}">${c.icon} ${esc(c.name)}</option>`).join("")}</select>
+      <div id="fin-cat-budget" class="muted small" style="margin:-6px 0 12px">${categoryBudgetHint(expCats[0]?.id)}</div>
       <input id="fin-note" class="input" placeholder="Note (optional)" />
       <input id="fin-date" class="input" type="date" value="${todayKey()}" />
       <button id="fin-add" class="btn primary block">Add</button>
     </div>
+
+    ${budgetedCats.length ? `
+    <div class="card">
+      <div class="card-label">Category budgets this month</div>
+      ${budgetedCats.map(({ c, bs }) => {
+        const pct = Math.min(100, bs.pct);
+        const color = bs.status === "over" ? "#ff8787" : bs.status === "warn" ? "#fcc419" : "#51cf66";
+        return `<div class="vol-row">
+          <span class="vol-label">${c.icon} ${esc(c.name)}</span>
+          <div class="bar"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
+          <span class="vol-num">${fmtMoneyShort(bs.spent)} / ${fmtMoneyShort(bs.target)}</span>
+        </div>`;
+      }).join("")}
+    </div>` : ""}
 
     <div class="card">
       <div class="card-label">This month's transactions</div>
@@ -1823,14 +1857,22 @@ function wireFinLog() {
       amtInput.value = state.finance.expectedIncome;
     }
   };
+  // Ties the Log form into Budgets: shows the selected category's budget
+  // status live, so you can see how much room is left before you even log.
+  const updateCatBudgetHint = () => {
+    const hintEl = $("#fin-cat-budget");
+    if (!hintEl) return;
+    hintEl.innerHTML = curType === "income" ? "" : categoryBudgetHint(catSelect.value);
+  };
   typeBtns.forEach(b => b.addEventListener("click", () => {
     curType = b.dataset.type;
     typeBtns.forEach(x => x.classList.toggle("active", x === b));
     const cats = curType === "income" ? allIncomeCategories() : allExpenseCategories();
     catSelect.innerHTML = cats.map(c => `<option value="${c.id}">${c.icon} ${esc(c.name)}</option>`).join("");
     maybePrefillPaycheck();
+    updateCatBudgetHint();
   }));
-  catSelect.addEventListener("change", maybePrefillPaycheck);
+  catSelect.addEventListener("change", () => { maybePrefillPaycheck(); updateCatBudgetHint(); });
   $("#fin-add")?.addEventListener("click", () => {
     const amount = parseFloat($("#fin-amount").value);
     if (isNaN(amount) || amount <= 0) { toast("Enter a valid amount"); return; }

@@ -42,7 +42,9 @@ variable**, tracked against a budget target and your own rolling average.
   toggle); a current-month checklist that logs a real transaction when checked off, while
   the total always counts toward the monthly fixed obligation regardless of paid status.
 - **Log** — quick-add expense or income transactions (amount, category, note, date);
-  view/delete this month's entries.
+  view/delete this month's entries. Tied into Budgets: a live hint under the category
+  picker shows that category's budget and how much is left as you pick it, and a
+  "Category budgets this month" list surfaces every budgeted category at a glance.
 - **Budgets** — monthly target per category, either a fixed $ amount or a **% of expected
   income** that recomputes automatically as income changes, each with a **recommended
   percentage range** (commonly-cited financial-planning guidelines) and a one-tap "Use X%"
