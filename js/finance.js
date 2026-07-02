@@ -59,6 +59,25 @@ const RECOMMENDED_BUDGET_PCT = {
 // A commonly-cited overall savings-rate guideline (the "20" in 50/30/20).
 const RECOMMENDED_SAVINGS_PCT = 20;
 
+// Pay-period frequencies, so "expected income" can be entered as a per-check
+// amount (very common for biweekly payroll) instead of forcing a monthly
+// figure. perYear drives the conversion to/from a monthly-equivalent.
+const INCOME_FREQUENCIES = {
+  weekly:      { label: "Weekly",                    perYear: 52 },
+  biweekly:    { label: "Biweekly (every 2 weeks)",   perYear: 26 },
+  semimonthly: { label: "Semi-monthly (twice/month)", perYear: 24 },
+  monthly:     { label: "Monthly",                    perYear: 12 },
+  annually:    { label: "Annually",                   perYear: 1 },
+};
+function toMonthlyAmount(amount, frequency) {
+  const f = INCOME_FREQUENCIES[frequency] || INCOME_FREQUENCIES.monthly;
+  return (amount * f.perYear) / 12;
+}
+function fromMonthlyAmount(monthlyAmount, frequency) {
+  const f = INCOME_FREQUENCIES[frequency] || INCOME_FREQUENCIES.monthly;
+  return (monthlyAmount * 12) / f.perYear;
+}
+
 /* -------------------------------- date helpers ----------------------------- */
 function monthKey(d) { return new Date(d).toISOString().slice(0, 7); } // 'YYYY-MM'
 function currentMonthKey() { return monthKey(new Date()); }
@@ -87,6 +106,7 @@ if (typeof module !== "undefined") {
   module.exports = {
     EXPENSE_CATEGORIES, INCOME_CATEGORIES, EXPENSE_CAT_BY_ID, INCOME_CAT_BY_ID,
     RECOMMENDED_BUDGET_PCT, RECOMMENDED_SAVINGS_PCT,
+    INCOME_FREQUENCIES, toMonthlyAmount, fromMonthlyAmount,
     monthKey, currentMonthKey, fmtMonth, addMonths, lastNMonthKeys, daysInMonth,
   };
 }

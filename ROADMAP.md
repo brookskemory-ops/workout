@@ -46,12 +46,15 @@ variable**, tracked against a budget target and your own rolling average.
 - **Budgets** — monthly target per category, either a fixed $ amount or a **% of expected
   income** that recomputes automatically as income changes, each with a **recommended
   percentage range** (commonly-cited financial-planning guidelines) and a one-tap "Use X%"
-  button. A green/yellow/red progress bar compares actual spend to target and to your
-  historical average. An overview shows **exactly how much is left for savings**
-  (income − fixed bills − every budget) with a savings-rate status message and a one-tap
-  way to log that leftover as a goal contribution. Variable and fixed-bill categories are
-  shown separately so Budgets doesn't overlap confusingly with Bills. Currency symbol +
-  custom category management.
+  button. **Pay-frequency aware**: choose Weekly / Biweekly / Semi-monthly / Monthly /
+  Annually and enter one pay period's amount — the app converts to a monthly-equivalent
+  and shows a "≈ $X/paycheck" figure on every category budget; logging a "Paycheck" income
+  entry in the Log tab pre-fills from it. A green/yellow/red progress bar compares actual
+  spend to target and to your historical average. An overview shows **exactly how much is
+  left for savings** (income − fixed bills − every budget) with a savings-rate status
+  message and a one-tap way to log that leftover as a goal contribution. Variable and
+  fixed-bill categories are shown separately so Budgets doesn't overlap confusingly with
+  Bills. Currency symbol + custom category management.
 - **Reports** — monthly summary (income / fixed / variable / net / savings rate),
   spending-by-category breakdown, and a 6-month net-cash-flow trend; browse any of the
   last 12 months.

@@ -42,7 +42,8 @@ const DEFAULT_STATE = {
     debts: [],           // [{id, name, balance, apr, minPayment}]
     debtStrategy: "avalanche", // 'avalanche' | 'snowball'
     debtExtraPayment: 0,
-    expectedIncome: null, // manual $/mo override; falls back to logged-income average
+    expectedIncome: null, // manual override, in units of incomeFrequency; falls back to logged-income average
+    incomeFrequency: "monthly", // 'weekly'|'biweekly'|'semimonthly'|'monthly'|'annually'
   },
   createdAt: new Date().toISOString(),
 };
@@ -1600,11 +1601,19 @@ function getBudgetEntry(categoryId) {
 }
 // Expected monthly income: a manual override if set, else the average of
 // actual logged income over the last 3 months that had any activity at all.
-function expectedMonthlyIncome() {
-  if (state.finance.expectedIncome) return state.finance.expectedIncome;
+// Average of actual logged income over the last 3 active months — used both
+// as the auto-suggested monthly income and as the placeholder baseline for
+// the expected-income input regardless of which pay frequency is selected.
+function suggestedMonthlyFromHistory() {
   const keys = lastNMonthKeys(3).filter(k => transactionsInMonth(k).length > 0);
   if (!keys.length) return 0;
   return Math.round(keys.reduce((a, k) => a + monthTotals(k).income, 0) / keys.length);
+}
+function expectedMonthlyIncome() {
+  if (state.finance.expectedIncome) {
+    return Math.round(toMonthlyAmount(state.finance.expectedIncome, state.finance.incomeFrequency || "monthly"));
+  }
+  return suggestedMonthlyFromHistory();
 }
 // Resolves a budget entry to an actual monthly dollar target, converting a
 // percent-of-income entry using the current expected income.
@@ -1804,12 +1813,24 @@ function wireFinLog() {
   let curType = "expense";
   const typeBtns = $$(".fin-type-btn");
   const catSelect = $("#fin-category");
+  const amtInput = $("#fin-amount");
+  // Convenience: your "expected income" is already stored in per-paycheck
+  // units (whatever pay frequency you picked in Budgets), so logging a
+  // Paycheck entry can prefill straight from it — only if you haven't
+  // already typed something.
+  const maybePrefillPaycheck = () => {
+    if (curType === "income" && catSelect.value === "paycheck" && state.finance.expectedIncome && !amtInput.value) {
+      amtInput.value = state.finance.expectedIncome;
+    }
+  };
   typeBtns.forEach(b => b.addEventListener("click", () => {
     curType = b.dataset.type;
     typeBtns.forEach(x => x.classList.toggle("active", x === b));
     const cats = curType === "income" ? allIncomeCategories() : allExpenseCategories();
     catSelect.innerHTML = cats.map(c => `<option value="${c.id}">${c.icon} ${esc(c.name)}</option>`).join("");
+    maybePrefillPaycheck();
   }));
+  catSelect.addEventListener("change", maybePrefillPaycheck);
   $("#fin-add")?.addEventListener("click", () => {
     const amount = parseFloat($("#fin-amount").value);
     if (isNaN(amount) || amount <= 0) { toast("Enter a valid amount"); return; }
@@ -1940,6 +1961,8 @@ function budgetRowHTML(c, income) {
   const recDollars = rec && income > 0 ? ` (${fmtMoneyShort(income * rec.min / 100)}–${fmtMoneyShort(income * rec.max / 100)})` : "";
   const pct = bs.target ? Math.min(100, bs.pct) : 0;
   const color = bs.status === "over" ? "#ff8787" : bs.status === "warn" ? "#fcc419" : "#51cf66";
+  const freq = state.finance.incomeFrequency || "monthly";
+  const perCheck = bs.target && freq !== "monthly" ? Math.round(fromMonthlyAmount(bs.target, freq)) : null;
 
   return `<div class="budget-row">
     <div class="budget-head"><span class="budget-name">${c.icon} ${esc(c.name)}</span></div>
@@ -1959,7 +1982,7 @@ function budgetRowHTML(c, income) {
     `}
     ${bs.target
       ? `<div class="bar"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
-         <div class="muted small">${fmtMoneyShort(bs.spent)} / ${fmtMoneyShort(bs.target)} spent${avg ? ` · avg ${fmtMoneyShort(avg)}/mo` : ""}</div>`
+         <div class="muted small">${fmtMoneyShort(bs.spent)} / ${fmtMoneyShort(bs.target)} spent${avg ? ` · avg ${fmtMoneyShort(avg)}/mo` : ""}${perCheck ? ` · ≈ ${fmtMoneyShort(perCheck)}/paycheck` : ""}</div>`
       : avg ? `<div class="muted small">Spent ${fmtMoneyShort(bs.spent)} so far · avg ${fmtMoneyShort(avg)}/mo</div>` : ""}
   </div>`;
 }
@@ -1990,11 +2013,18 @@ function renderBudgetOverview() {
   }
 
   const activeGoals = state.finance.goals.filter(g => !g.achieved);
+  const freq = state.finance.incomeFrequency || "monthly";
+  const placeholderAmt = Math.round(fromMonthlyAmount(suggestedMonthlyFromHistory() || 4000, freq));
+  const freqOptions = Object.entries(INCOME_FREQUENCIES).map(([k, f]) =>
+    `<option value="${k}" ${freq === k ? "selected" : ""}>${f.label}</option>`).join("");
 
   return `<div class="card accent">
-    <div class="card-label">Expected monthly income</div>
-    <input id="fin-expected-income" class="input" inputmode="decimal" placeholder="e.g. ${expectedMonthlyIncome() || 4000}" value="${state.finance.expectedIncome || ""}" />
-    <p class="muted small">Auto-suggested from your logged income if left blank — used to compute the % based budgets below.</p>
+    <div class="card-label">Expected income</div>
+    <div class="macro-inputs">
+      <input id="fin-expected-income" class="input" inputmode="decimal" placeholder="e.g. ${placeholderAmt}" value="${state.finance.expectedIncome || ""}" />
+      <select id="fin-income-freq" class="select">${freqOptions}</select>
+    </div>
+    <p class="muted small">${income > 0 ? `= ${fmtMoneyShort(income)}/mo. ` : ""}Enter the amount per pay period (e.g. per biweekly check) — auto-suggested from your logged income if left blank. Used to compute the % based budgets below.</p>
 
     <div class="card-label" style="margin-top:12px">Left for savings after fixed bills + budgets</div>
     <div class="big" style="color:${statusColor}">${fmtMoneyShort(leftover)}${leftoverPct !== null ? `<span class="unit"> (${leftoverPct}%)</span>` : ""}</div>
@@ -2061,6 +2091,10 @@ function wireFinBudgets() {
   $("#fin-expected-income")?.addEventListener("change", (e) => {
     const v = parseFloat(e.target.value);
     state.finance.expectedIncome = (isNaN(v) || v <= 0) ? null : v;
+    save(); render();
+  });
+  $("#fin-income-freq")?.addEventListener("change", (e) => {
+    state.finance.incomeFrequency = e.target.value;
     save(); render();
   });
   $("#leftover-log")?.addEventListener("click", () => {

@@ -101,13 +101,20 @@ debts — nothing needs a bank connection or the internet.
 
 Each category budget in **Budgets** can work two ways:
 - **Fixed $** — a flat monthly cap, same every month.
-- **% of income** — a share of your **expected monthly income** (auto-suggested from your
-  logged income, or set it yourself). The dollar target recomputes automatically whenever
-  your expected income changes.
+- **% of income** — a share of your **expected income** (auto-suggested from your logged
+  income, or set it yourself). The dollar target recomputes automatically whenever your
+  expected income changes.
 
 Every category shows a **recommended percentage range** (e.g. Groceries 10–15%, Rent
 25–35%) based on commonly-cited financial-planning guidelines — not personalized advice,
 just a sane starting point. Tap **"Use X%"** to apply the midpoint instantly, then adjust.
+
+**Pick your pay frequency** — Weekly, Biweekly, Semi-monthly, Monthly, or Annually — and
+enter the amount for *one pay period* (e.g. one biweekly paycheck). Everything converts
+to a monthly-equivalent automatically, and each category budget also shows a **"≈
+$X/paycheck"** figure so you know how much to set aside from the check that just landed.
+Logging an income entry for "Paycheck" in the Log tab even pre-fills the amount from this
+for you.
 
 The overview at the top of Budgets shows **exactly how much is left for savings**:
 `income − fixed bills − every category budget`, with a status message against the common
