@@ -43,8 +43,15 @@ variable**, tracked against a budget target and your own rolling average.
   the total always counts toward the monthly fixed obligation regardless of paid status.
 - **Log** — quick-add expense or income transactions (amount, category, note, date);
   view/delete this month's entries.
-- **Budgets** — monthly target per category with a green/yellow/red progress bar vs.
-  actual spend and your historical average; currency symbol + custom category management.
+- **Budgets** — monthly target per category, either a fixed $ amount or a **% of expected
+  income** that recomputes automatically as income changes, each with a **recommended
+  percentage range** (commonly-cited financial-planning guidelines) and a one-tap "Use X%"
+  button. A green/yellow/red progress bar compares actual spend to target and to your
+  historical average. An overview shows **exactly how much is left for savings**
+  (income − fixed bills − every budget) with a savings-rate status message and a one-tap
+  way to log that leftover as a goal contribution. Variable and fixed-bill categories are
+  shown separately so Budgets doesn't overlap confusingly with Bills. Currency symbol +
+  custom category management.
 - **Reports** — monthly summary (income / fixed / variable / net / savings rate),
   spending-by-category breakdown, and a 6-month net-cash-flow trend; browse any of the
   last 12 months.

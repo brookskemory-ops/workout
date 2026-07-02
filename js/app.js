@@ -35,13 +35,14 @@ const DEFAULT_STATE = {
     currency: "$",
     fixedExpenses: [],   // [{id, name, amount, category, dueDay, active}]
     transactions: [],    // [{id, date, amount, category, note, type:'expense'|'income', source:'fixed'|'variable'|'income', fixedBillId?}]
-    budgets: {},         // categoryId -> monthly target amount
+    budgets: {},         // categoryId -> { mode:'fixed'|'percent', value:number } (legacy: plain number = fixed $)
     customCategories: [],// [{id, name, icon, type:'expense'|'income'}] user-added, merged with the built-ins
     goals: [],           // [{id, name, kind:'savings'|'sinking', target, targetDate, category, achieved, createdAt}]
     contributions: [],   // [{id, goalId, amount, date}]
     debts: [],           // [{id, name, balance, apr, minPayment}]
     debtStrategy: "avalanche", // 'avalanche' | 'snowball'
     debtExtraPayment: 0,
+    expectedIncome: null, // manual $/mo override; falls back to logged-income average
   },
   createdAt: new Date().toISOString(),
 };
@@ -1588,8 +1589,36 @@ function categoryAverage(categoryId, months) {
   const sum = activeKeys.reduce((a, k) => a + categorySpend(k, categoryId, "variable"), 0);
   return sum / activeKeys.length;
 }
+// Normalizes a stored budget entry to { mode, value }. Older saved data
+// stored a plain number (always meant as a fixed $ target) — read it the
+// same way without needing a migration; writes always use the new shape.
+function getBudgetEntry(categoryId) {
+  const raw = state.finance.budgets[categoryId];
+  if (raw == null) return null;
+  if (typeof raw === "number") return { mode: "fixed", value: raw };
+  return raw;
+}
+// Expected monthly income: a manual override if set, else the average of
+// actual logged income over the last 3 months that had any activity at all.
+function expectedMonthlyIncome() {
+  if (state.finance.expectedIncome) return state.finance.expectedIncome;
+  const keys = lastNMonthKeys(3).filter(k => transactionsInMonth(k).length > 0);
+  if (!keys.length) return 0;
+  return Math.round(keys.reduce((a, k) => a + monthTotals(k).income, 0) / keys.length);
+}
+// Resolves a budget entry to an actual monthly dollar target, converting a
+// percent-of-income entry using the current expected income.
+function budgetTargetAmount(categoryId) {
+  const entry = getBudgetEntry(categoryId);
+  if (!entry) return null;
+  if (entry.mode === "percent") {
+    const income = expectedMonthlyIncome();
+    return income > 0 ? Math.round((entry.value / 100) * income) : 0;
+  }
+  return entry.value;
+}
 function budgetStatus(categoryId, key) {
-  const target = state.finance.budgets[categoryId];
+  const target = budgetTargetAmount(categoryId);
   const spent = categorySpend(key || currentMonthKey(), categoryId, "variable");
   if (!target) return { spent, target: null, pct: null, status: "none" };
   const pct = Math.round((spent / target) * 100);
@@ -1895,29 +1924,104 @@ function showBillEditModal(bill) {
 }
 
 /* ---- Finance: Budgets ---- */
-function renderFinBudgets() {
-  const key = currentMonthKey();
-  const cats = allExpenseCategories();
-  const rows = cats.map(c => {
-    const bs = budgetStatus(c.id, key);
-    const avg = categoryAverage(c.id, 3);
-    const target = state.finance.budgets[c.id] || "";
-    const pct = bs.target ? Math.min(100, bs.pct) : 0;
-    const color = bs.status === "over" ? "#ff8787" : bs.status === "warn" ? "#fcc419" : "#51cf66";
-    return `<div class="budget-row">
-      <div class="budget-head">
-        <span class="budget-name">${c.icon} ${esc(c.name)}</span>
-        <input class="budget-input" data-budget-cat="${c.id}" inputmode="decimal" placeholder="no target" value="${target}" />
+// Total of every category's resolved monthly target ($, whether fixed or
+// percent-derived) — used to compute how much income is left after budgets.
+function totalBudgetedAmount() {
+  return allExpenseCategories().reduce((a, c) => a + (budgetTargetAmount(c.id) || 0), 0);
+}
+
+function budgetRowHTML(c, income) {
+  const entry = getBudgetEntry(c.id);
+  const mode = entry ? entry.mode : "fixed";
+  const bs = budgetStatus(c.id);
+  const avg = categoryAverage(c.id, 3);
+  const rec = RECOMMENDED_BUDGET_PCT[c.id];
+  const recMid = rec ? Math.round((rec.min + rec.max) / 2) : null;
+  const recDollars = rec && income > 0 ? ` (${fmtMoneyShort(income * rec.min / 100)}–${fmtMoneyShort(income * rec.max / 100)})` : "";
+  const pct = bs.target ? Math.min(100, bs.pct) : 0;
+  const color = bs.status === "over" ? "#ff8787" : bs.status === "warn" ? "#fcc419" : "#51cf66";
+
+  return `<div class="budget-row">
+    <div class="budget-head"><span class="budget-name">${c.icon} ${esc(c.name)}</span></div>
+    ${rec ? `<div class="muted small">Recommended: ${rec.min}–${rec.max}% of income${recDollars}
+      <button class="chip budget-use-rec" data-use-rec="${c.id}" data-rec-pct="${recMid}">Use ${recMid}%</button></div>` : ""}
+    <div class="fin-type-toggle budget-mode-toggle">
+      <button class="fin-type-btn ${mode === "fixed" ? "active" : ""}" data-budget-mode="fixed" data-budget-cat="${c.id}">${financeCurrency()} Fixed</button>
+      <button class="fin-type-btn ${mode === "percent" ? "active" : ""}" data-budget-mode="percent" data-budget-cat="${c.id}">% Income</button>
+    </div>
+    ${mode === "percent" ? `
+      <div class="macro-inputs">
+        <input class="input budget-pct-input" data-budget-cat="${c.id}" inputmode="decimal" placeholder="%" value="${entry ? entry.value : ""}" />
+        <div class="muted small" style="align-self:center">${bs.target ? `= ${fmtMoneyShort(bs.target)}/mo` : "set income above"}</div>
       </div>
-      ${bs.target
-        ? `<div class="bar"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
-           <div class="muted small">${fmtMoneyShort(bs.spent)} / ${fmtMoneyShort(bs.target)} spent${avg ? ` · avg ${fmtMoneyShort(avg)}/mo` : ""}</div>`
-        : avg ? `<div class="muted small">Spent ${fmtMoneyShort(bs.spent)} so far · avg ${fmtMoneyShort(avg)}/mo</div>` : ""}
-    </div>`;
-  }).join("");
+    ` : `
+      <input class="input budget-fixed-input" data-budget-cat="${c.id}" inputmode="decimal" placeholder="no target" value="${entry ? entry.value : ""}" />
+    `}
+    ${bs.target
+      ? `<div class="bar"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
+         <div class="muted small">${fmtMoneyShort(bs.spent)} / ${fmtMoneyShort(bs.target)} spent${avg ? ` · avg ${fmtMoneyShort(avg)}/mo` : ""}</div>`
+      : avg ? `<div class="muted small">Spent ${fmtMoneyShort(bs.spent)} so far · avg ${fmtMoneyShort(avg)}/mo</div>` : ""}
+  </div>`;
+}
+
+function renderBudgetOverview() {
+  const income = expectedMonthlyIncome();
+  const fixed = fixedMonthlyTotal();
+  const budgeted = totalBudgetedAmount();
+  const leftover = income - fixed - budgeted;
+  const leftoverPct = income > 0 ? Math.round((leftover / income) * 100) : null;
+
+  let statusMsg, statusColor;
+  if (income <= 0) {
+    statusMsg = "Set your expected monthly income above (or log some income in the Log tab) to see how much is left for savings.";
+    statusColor = "var(--muted)";
+  } else if (leftover < 0) {
+    statusMsg = `🚨 Fixed bills + budgets exceed your income by ${fmtMoneyShort(-leftover)}.`;
+    statusColor = "#ff6b6b";
+  } else if (leftoverPct >= RECOMMENDED_SAVINGS_PCT) {
+    statusMsg = `✅ That's a ${leftoverPct}% savings rate — at or above the common ${RECOMMENDED_SAVINGS_PCT}% guideline.`;
+    statusColor = "#51cf66";
+  } else if (leftoverPct >= 10) {
+    statusMsg = `🟡 ${leftoverPct}% left for savings — a common guideline is ~${RECOMMENDED_SAVINGS_PCT}%. Trim a budget above to free up more.`;
+    statusColor = "#fcc419";
+  } else {
+    statusMsg = `⚠️ Only ${leftoverPct}% left for savings — consider lowering a budget above.`;
+    statusColor = "#ff8787";
+  }
+
+  const activeGoals = state.finance.goals.filter(g => !g.achieved);
+
+  return `<div class="card accent">
+    <div class="card-label">Expected monthly income</div>
+    <input id="fin-expected-income" class="input" inputmode="decimal" placeholder="e.g. ${expectedMonthlyIncome() || 4000}" value="${state.finance.expectedIncome || ""}" />
+    <p class="muted small">Auto-suggested from your logged income if left blank — used to compute the % based budgets below.</p>
+
+    <div class="card-label" style="margin-top:12px">Left for savings after fixed bills + budgets</div>
+    <div class="big" style="color:${statusColor}">${fmtMoneyShort(leftover)}${leftoverPct !== null ? `<span class="unit"> (${leftoverPct}%)</span>` : ""}</div>
+    <p class="muted small">${statusMsg}</p>
+
+    ${leftover > 0 && activeGoals.length ? `
+      <div class="card-label" style="margin-top:12px">Log this toward a goal</div>
+      <div class="macro-inputs">
+        <select id="leftover-goal" class="select">${activeGoals.map(g => `<option value="${g.id}">${g.kind === "sinking" ? "🧩" : "🐷"} ${esc(g.name)}</option>`).join("")}</select>
+        <input id="leftover-amount" class="input" inputmode="decimal" value="${Math.max(0, Math.round(leftover))}" />
+      </div>
+      <button id="leftover-log" class="btn primary block">💰 Log contribution</button>
+    ` : ""}
+  </div>`;
+}
+
+let fixedBudgetsOpen = false;
+function renderFinBudgets() {
+  const income = expectedMonthlyIncome();
+  const allCats = allExpenseCategories();
+  const variableCats = allCats.filter(c => c.typical !== "fixed");
+  const fixedCats = allCats.filter(c => c.typical === "fixed");
 
   return `
-    <header class="page-head"><h1>Budgets</h1><p class="muted">${fmtMonth(key)} · targets per category</p></header>
+    <header class="page-head"><h1>Budgets</h1><p class="muted">${fmtMonth(currentMonthKey())} · targets per category</p></header>
+
+    ${renderBudgetOverview()}
 
     <div class="card">
       <div class="card-label">Currency symbol</div>
@@ -1925,10 +2029,16 @@ function renderFinBudgets() {
     </div>
 
     <div class="card">
-      <div class="card-label">Monthly budget targets</div>
-      ${rows}
-      <div class="muted small">Leave blank for no target. Bars compare this month's actual spend to your target; "avg" is your rolling average from logged months.</div>
+      <div class="card-label">Variable spending budgets</div>
+      ${variableCats.map(c => budgetRowHTML(c, income)).join("")}
+      <div class="muted small">Set a fixed ${financeCurrency()} amount or a % of income — percent targets recompute automatically as your expected income changes. "avg" is your rolling 3-month average.</div>
     </div>
+
+    <details class="card" id="fixed-budgets-details" ${fixedBudgetsOpen ? "open" : ""}>
+      <summary class="card-label">Fixed-category budgets (optional)</summary>
+      <p class="muted small">These are already tracked automatically via Bills — budgeting them here only compares any <em>extra</em> ad-hoc spending you log in these categories.</p>
+      ${fixedCats.map(c => budgetRowHTML(c, income)).join("")}
+    </details>
 
     <div class="card">
       <div class="card-label">Add a custom category</div>
@@ -1947,14 +2057,55 @@ function renderFinBudgets() {
   `;
 }
 function wireFinBudgets() {
-  $$("[data-budget-cat]").forEach(inp => inp.addEventListener("change", () => {
+  $("#fixed-budgets-details")?.addEventListener("toggle", (e) => { fixedBudgetsOpen = e.target.open; });
+  $("#fin-expected-income")?.addEventListener("change", (e) => {
+    const v = parseFloat(e.target.value);
+    state.finance.expectedIncome = (isNaN(v) || v <= 0) ? null : v;
+    save(); render();
+  });
+  $("#leftover-log")?.addEventListener("click", () => {
+    const goalId = $("#leftover-goal")?.value;
+    const amount = parseFloat($("#leftover-amount")?.value);
+    if (!goalId || isNaN(amount) || amount <= 0) { toast("Enter an amount"); return; }
+    state.finance.contributions.push({ id: uid(), goalId, amount, date: new Date().toISOString() });
+    save(); render(); toast("Contribution logged ✔");
+  });
+  $$("[data-budget-mode]").forEach(b => b.addEventListener("click", () => {
+    const cat = b.dataset.budgetCat, mode = b.dataset.budgetMode;
+    const income = expectedMonthlyIncome();
+    const current = getBudgetEntry(cat);
+    let value = 0;
+    if (current) {
+      value = mode === current.mode ? current.value
+        : mode === "percent" ? (income > 0 ? Math.round((current.value / income) * 100) : 0)
+        : Math.round((current.value / 100) * income);
+    } else if (mode === "percent" && RECOMMENDED_BUDGET_PCT[cat]) {
+      const r = RECOMMENDED_BUDGET_PCT[cat];
+      value = Math.round((r.min + r.max) / 2);
+    }
+    state.finance.budgets[cat] = { mode, value };
+    save(); render();
+  }));
+  $$("[data-use-rec]").forEach(b => b.addEventListener("click", () => {
+    state.finance.budgets[b.dataset.useRec] = { mode: "percent", value: parseFloat(b.dataset.recPct) };
+    save(); render(); toast(`Set to ${b.dataset.recPct}% of income`);
+  }));
+  $$(".budget-pct-input").forEach(inp => inp.addEventListener("change", () => {
     const v = parseFloat(inp.value);
-    if (isNaN(v) || v <= 0) delete state.finance.budgets[inp.dataset.budgetCat];
-    else state.finance.budgets[inp.dataset.budgetCat] = v;
+    const cat = inp.dataset.budgetCat;
+    if (isNaN(v) || v <= 0) delete state.finance.budgets[cat];
+    else state.finance.budgets[cat] = { mode: "percent", value: v };
+    save(); render();
+  }));
+  $$(".budget-fixed-input").forEach(inp => inp.addEventListener("change", () => {
+    const v = parseFloat(inp.value);
+    const cat = inp.dataset.budgetCat;
+    if (isNaN(v) || v <= 0) delete state.finance.budgets[cat];
+    else state.finance.budgets[cat] = { mode: "fixed", value: v };
     save(); render();
   }));
   $("#fin-currency")?.addEventListener("change", (e) => {
-    state.finance.currency = e.target.value.trim() || "$";
+    state.finance.currency = e.target.value.trim().replace(/[<>&"']/g, "").slice(0, 3) || "$";
     save(); render();
   });
   $("#cc-add")?.addEventListener("click", () => {

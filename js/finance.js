@@ -35,6 +35,30 @@ const INCOME_CATEGORIES = [
 const EXPENSE_CAT_BY_ID = Object.fromEntries(EXPENSE_CATEGORIES.map(c => [c.id, c]));
 const INCOME_CAT_BY_ID = Object.fromEntries(INCOME_CATEGORIES.map(c => [c.id, c]));
 
+// General financial-planning guidelines for what share of monthly income a
+// category might reasonably take up (commonly-cited rule-of-thumb ranges —
+// not personalized financial advice). Used to suggest a starting budget %;
+// the user can always override with their own fixed $ or % target.
+const RECOMMENDED_BUDGET_PCT = {
+  rent: { min: 25, max: 35 },
+  utilities: { min: 5, max: 10 },
+  insurance: { min: 5, max: 10 },
+  subscriptions: { min: 1, max: 3 },
+  loan: { min: 5, max: 15 },
+  groceries: { min: 10, max: 15 },
+  dining: { min: 3, max: 7 },
+  transport: { min: 10, max: 15 },
+  shopping: { min: 3, max: 8 },
+  entertainment: { min: 3, max: 5 },
+  health: { min: 3, max: 8 },
+  personal: { min: 2, max: 5 },
+  travel: { min: 2, max: 5 },
+  gifts: { min: 1, max: 3 },
+  misc: { min: 2, max: 5 },
+};
+// A commonly-cited overall savings-rate guideline (the "20" in 50/30/20).
+const RECOMMENDED_SAVINGS_PCT = 20;
+
 /* -------------------------------- date helpers ----------------------------- */
 function monthKey(d) { return new Date(d).toISOString().slice(0, 7); } // 'YYYY-MM'
 function currentMonthKey() { return monthKey(new Date()); }
@@ -62,6 +86,7 @@ function daysInMonth(key) {
 if (typeof module !== "undefined") {
   module.exports = {
     EXPENSE_CATEGORIES, INCOME_CATEGORIES, EXPENSE_CAT_BY_ID, INCOME_CAT_BY_ID,
+    RECOMMENDED_BUDGET_PCT, RECOMMENDED_SAVINGS_PCT,
     monthKey, currentMonthKey, fmtMonth, addMonths, lastNMonthKeys, daysInMonth,
   };
 }

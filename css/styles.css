@@ -311,11 +311,19 @@ button.card.center { text-align: center; }
 .goal-card:last-child { border-bottom: none; }
 .goal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
 
-.budget-row { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.budget-row { padding: 12px 0; border-bottom: 1px solid var(--line); }
 .budget-row:last-child { border-bottom: none; }
-.budget-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 6px; }
+.budget-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 4px; }
 .budget-name { font-weight: 600; font-size: 0.92rem; }
-.budget-input { width: 100px; flex: 0 0 auto; background: var(--bg-card-2); border: 1px solid var(--line); border-radius: 8px; color: var(--text); padding: 6px 8px; text-align: right; font-size: 0.9rem; }
+.budget-mode-toggle { margin: 6px 0 8px; }
+.budget-mode-toggle .fin-type-btn { padding: 8px; font-size: 0.8rem; }
+.budget-use-rec { padding: 3px 9px; font-size: 0.72rem; margin-left: 4px; }
+
+details.card summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 6px; }
+details.card summary::-webkit-details-marker { display: none; }
+details.card summary::before { content: "▸"; color: var(--muted); font-size: 0.7rem; transition: transform .15s; }
+details.card[open] summary::before { transform: rotate(90deg); }
+details.card[open] summary { margin-bottom: 12px; }
 
 /* ------------------------------ toast ------------------------------------ */
 #toast { position: fixed; bottom: calc(var(--nav-h) + var(--safe-b) + 20px); left: 50%; transform: translateX(-50%) translateY(20px); background: #fff; color: #111; padding: 11px 18px; border-radius: 24px; font-size: 0.9rem; font-weight: 700; opacity: 0; pointer-events: none; transition: all .25s; z-index: 200; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
