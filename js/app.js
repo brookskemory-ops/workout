@@ -414,8 +414,9 @@ function renderWorkout() {
   if (!state.program) {
     return `<header class="page-head"><h1>Workout</h1></header>
       <div class="card center">
-        <p>No program generated yet.</p>
-        <a class="btn primary" href="#settings">Generate a program</a>
+        <p>No program yet.</p>
+        <a class="btn primary block" href="#settings">⚡ Generate a program</a>
+        <button id="start-freeform" class="btn block">🏋️ Or just start today — pick exercises from the library</button>
       </div>`;
   }
   const idx = nextWorkoutIndex();
@@ -432,9 +433,29 @@ function renderWorkout() {
   `;
 }
 
+// Lets someone with no saved program start logging immediately by picking
+// exercises straight from the library, without generating or building one.
+function startFreeformWorkout() {
+  const days = [{ name: "Today's Workout", exercises: [] }];
+  const weeklyVolume = computeWeeklyVolume(days);
+  state.program = {
+    splitKey: "custom", splitName: "My Workouts",
+    blurb: "Freeform — pick exercises as you go.",
+    days, weeklyVolume,
+    coverage: assessCoverage(weeklyVolume, targets()),
+    generatedAt: new Date().toISOString(),
+  };
+  state.programOpts = { split: "custom", equipment: (state.programOpts && state.programOpts.equipment) || [], custom: true };
+  save();
+  render();
+}
+
 function wireWorkout() {
   const sel = $("#day-select");
-  if (!sel) return;
+  if (!sel) {
+    $("#start-freeform")?.addEventListener("click", startFreeformWorkout);
+    return;
+  }
   const renderDay = () => { $("#workout-body").innerHTML = renderWorkoutDay(+sel.value); wireWorkoutDay(+sel.value); };
   sel.addEventListener("change", renderDay);
   renderDay();
@@ -472,6 +493,7 @@ function renderWorkoutDay(dayIdx) {
           <button class="icon-btn calc-btn" data-calc="${item.exerciseId}" title="Plates & warm-up">🧮</button>
           <button class="icon-btn swap-btn" data-swap="${item.exerciseId}" title="Swap exercise">⇄</button>
           <button class="icon-btn info-btn" data-ex-info="${item.exerciseId}" title="How to">ⓘ</button>
+          <button class="icon-btn danger" data-remove-ex="${i}" title="Remove from today">✕</button>
         </div>
       </div>
       <div class="last-line">${lastTxt}</div>
@@ -479,9 +501,10 @@ function renderWorkoutDay(dayIdx) {
       <div class="set-rows">${setRows}</div>
       <button class="btn small save-ex">Save ${esc(ex.name.split(" ")[0])} sets</button>
     </div>`;
-  }).join("");
+  }).join("") || '<p class="muted center">No exercises yet — tap "Add exercise" below to pick from the library.</p>';
 
   return `<div class="day-title">${esc(day.name)}</div>${cards}
+    <button id="add-workout-ex" class="btn block">+ Add exercise from library</button>
     <button id="finish-workout" class="btn primary block lg">Finish & Log Workout</button>`;
 }
 
@@ -511,6 +534,25 @@ function wireWorkoutDay(dayIdx) {
     const card = b.closest(".exercise-card");
     saveExerciseSets(card);
     toast("Saved ✔");
+  }));
+  // add any exercise from the library into today's session
+  $("#add-workout-ex")?.addEventListener("click", () => {
+    showExercisePicker(ex => {
+      state.program.days[dayIdx].exercises.push({ exerciseId: ex.id, sets: ex.sets, repRange: ex.repRange.slice(), rir: ex.rir });
+      state.program.weeklyVolume = computeWeeklyVolume(state.program.days);
+      state.program.coverage = assessCoverage(state.program.weeklyVolume, targets());
+      save();
+      rerenderWorkoutDay(dayIdx);
+      toast(`Added ${ex.name}`);
+    });
+  });
+  // remove an exercise from today's session
+  $$("[data-remove-ex]").forEach(b => b.addEventListener("click", () => {
+    state.program.days[dayIdx].exercises.splice(+b.dataset.removeEx, 1);
+    state.program.weeklyVolume = computeWeeklyVolume(state.program.days);
+    state.program.coverage = assessCoverage(state.program.weeklyVolume, targets());
+    save();
+    rerenderWorkoutDay(dayIdx);
   }));
   $("#finish-workout")?.addEventListener("click", () => finishWorkout(dayIdx));
 }
@@ -903,6 +945,41 @@ function showSwapModal(dayIdx, idx, exId) {
   document.body.appendChild(modal);
 }
 
+// The workout day re-renders from scratch (fresh, valueless inputs) after any
+// swap/add/remove, which would otherwise silently wipe weights/reps you'd
+// already typed into OTHER exercise cards. Capture by exercise id + set
+// index before re-rendering, then restore after.
+function captureSetInputs() {
+  const captured = {};
+  $$(".exercise-card").forEach(card => {
+    captured[card.dataset.ex] = $$(".set-row", card).map(row => ({
+      weight: $(".set-weight", row).value,
+      reps: $(".set-reps", row).value,
+      done: row.classList.contains("done"),
+    }));
+  });
+  return captured;
+}
+function restoreSetInputs(captured) {
+  $$(".exercise-card").forEach(card => {
+    const saved = captured[card.dataset.ex];
+    if (!saved) return;
+    $$(".set-row", card).forEach((row, i) => {
+      const s = saved[i];
+      if (!s) return;
+      if (s.weight) $(".set-weight", row).value = s.weight;
+      if (s.reps) $(".set-reps", row).value = s.reps;
+      if (s.done) row.classList.add("done");
+    });
+  });
+}
+function rerenderWorkoutDay(dayIdx) {
+  const captured = captureSetInputs();
+  $("#workout-body").innerHTML = renderWorkoutDay(dayIdx);
+  wireWorkoutDay(dayIdx);
+  restoreSetInputs(captured);
+}
+
 function applySwap(dayIdx, idx, newId) {
   const ex = EXERCISE_BY_ID[newId];
   if (!ex || !state.program) return;
@@ -919,9 +996,7 @@ function applySwap(dayIdx, idx, newId) {
   state.program.weeklyVolume = computeWeeklyVolume(state.program.days);
   state.program.coverage = assessCoverage(state.program.weeklyVolume, targets());
   save();
-  // re-render the workout day
-  $("#workout-body").innerHTML = renderWorkoutDay(dayIdx);
-  wireWorkoutDay(dayIdx);
+  rerenderWorkoutDay(dayIdx);
   toast(`Swapped to ${ex.name}`);
 }
 
@@ -1432,7 +1507,13 @@ function wireBuilder() {
   $$("[data-day-name]").forEach(inp => inp.addEventListener("change", () => {
     programDraft.days[+inp.dataset.dayName].name = inp.value.trim() || "Day";
   }));
-  $$("[data-add-ex]").forEach(b => b.addEventListener("click", () => showExercisePicker(+b.dataset.addEx)));
+  $$("[data-add-ex]").forEach(b => b.addEventListener("click", () => {
+    const dayIdx = +b.dataset.addEx;
+    showExercisePicker(ex => {
+      programDraft.days[dayIdx].exercises.push({ exerciseId: ex.id, sets: ex.sets, repRange: ex.repRange.slice(), rir: ex.rir });
+      render();
+    });
+  }));
   $$("[data-del-ex]").forEach(b => b.addEventListener("click", () => {
     const [di, ei] = b.dataset.delEx.split(":").map(Number);
     programDraft.days[di].exercises.splice(ei, 1);
@@ -1452,9 +1533,11 @@ function wireBuilder() {
   $("#cancel-builder")?.addEventListener("click", () => { programDraft = null; navigate("settings"); });
 }
 
-// Full-library exercise picker for the builder — search + browse by muscle,
-// with zero restriction on which muscle group can go on which day.
-function showExercisePicker(dayIdx) {
+// Full-library exercise picker — search + browse by muscle, with zero
+// restriction on which muscle group can be picked for any given purpose.
+// Shared by the Program Builder and the Workout tab's "Add exercise";
+// `onPick(exercise)` is called once with the chosen exercise.
+function showExercisePicker(onPick) {
   const groups = {};
   for (const ex of EXERCISES) { const g = primaryGroup(ex); (groups[g] = groups[g] || []).push(ex); }
   const order = ["chest","back","sideDelts","rearDelts","frontDelts","biceps","triceps","quads","hamstrings","glutes","calves","abs"];
@@ -1472,7 +1555,7 @@ function showExercisePicker(dayIdx) {
     <div class="modal">
       <button class="modal-close">✕</button>
       <h2>Add exercise</h2>
-      <p class="muted small">Any exercise can go on any day — search or browse all ${EXERCISES.length}.</p>
+      <p class="muted small">Any exercise from any muscle group — search or browse all ${EXERCISES.length}.</p>
       <input id="picker-search" class="input" placeholder="🔍 Search all exercises…" />
       <div id="picker-list">${sections}</div>
     </div>`;
@@ -1481,11 +1564,8 @@ function showExercisePicker(dayIdx) {
     const pick = e.target.closest("[data-pick-ex]");
     if (pick) {
       const ex = EXERCISE_BY_ID[pick.dataset.pickEx];
-      programDraft.days[dayIdx].exercises.push({
-        exerciseId: ex.id, sets: ex.sets, repRange: ex.repRange.slice(), rir: ex.rir,
-      });
       modal.remove();
-      render();
+      onPick(ex);
     }
   });
   modal.querySelector("#picker-search").addEventListener("input", (e) => {

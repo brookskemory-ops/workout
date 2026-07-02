@@ -60,7 +60,7 @@ back anytime without needing to reload.
 | Tab | What it does |
 |-----|--------------|
 | **Home** | Next workout, calories & protein vs. goal, day streak, water / steps / cardio quick-log, this-week's volume per muscle, daily training principle. |
-| **Workout** | Your program's day with per-exercise **progressive-overload suggestions** (double progression), set-by-set weight × reps logging, an auto-starting **rest timer**, plate + warm-up calculator, **exercise swap to anything in the library** (not restricted to the same muscle), and tap-for-info on every movement. |
+| **Workout** | Your program's day with per-exercise **progressive-overload suggestions** (double progression), set-by-set weight × reps logging, an auto-starting **rest timer**, plate + warm-up calculator, **exercise swap to anything in the library** (not restricted to the same muscle), tap-for-info on every movement, and an **"+ Add exercise from library"** button (plus a remove button on every card) so you can freely add or drop exercises for today regardless of what's in your saved program. No program at all yet? Tap **"Or just start today"** to log a fully freeform session by picking exercises straight from the library. |
 | **Food** | Macro summary, one-tap **quick-add** common foods, custom entries, today's meal list. |
 | **Library** | 74 exercises across every muscle group — searchable, each with a description, step-by-step cues, target muscles, rep range / RIR, and a science note. |
 | **Progress** | Bodyweight trend, body measurements, estimated strength (e1RM), PR history with celebrations, cardio history, weekly volume. |

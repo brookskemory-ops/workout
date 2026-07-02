@@ -91,6 +91,15 @@ High-value, self-contained, used every session.
     Program Builder" to hand-tune an existing auto-generated one). Runs through the
     same workout logger, progression suggestions, plate calculator, and coverage
     report as generated programs.
+1c. **Freeform exercise picking on the Workout tab** ✅ — the Workout tab is no longer
+    limited to viewing whatever's in a saved program day: an "+ Add exercise from
+    library" button (plus a remove button per card) lets you add or drop any exercise
+    for today on the fly, whether or not it belongs to your saved program. With no
+    program at all, "Or just start today" builds a one-off session from scratch by
+    picking exercises straight from the library — no generating or building required
+    first. Fixed a related papercut where swapping/adding/removing one exercise would
+    silently wipe weights/reps already typed into other cards on the same day; typed
+    values now survive these re-renders.
 2. **Plate + warm-up calculator** ✅ — for a target working weight, shows the exact plate
    loadout per side and an auto-generated warm-up ramp (bar → 50% → 70% → 85% → work).
    Configurable bar weight; unit-aware plate set.
