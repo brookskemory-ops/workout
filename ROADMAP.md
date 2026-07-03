@@ -8,6 +8,10 @@ JSON export. Decisions locked in with the owner:
 - **Default split / volume:** PPL 6-day, advanced.
 - **Data model:** local `localStorage`, single versioned state object.
 - **Food database:** bundled offline list + search (no barcode/online API, by design).
+- **App modes:** Fitness and Finance are peers under one dashboard; the app **asks every
+  time** which one to open (no remembered default) — a manual switch is always available.
+- **Finance model:** fixed expenses are a one-time recurring setup list; variable expenses
+  are whatever gets logged; income is tracked; budget targets are set from day one.
 
 Legend: ✅ done · 🚧 in progress · ⏳ planned
 
@@ -27,14 +31,98 @@ Legend: ✅ done · 🚧 in progress · ⏳ planned
 
 ---
 
+## ✅ Finance Module — shipped
+A second app mode alongside Fitness, chosen every time you open the app (per the
+owner's call — no "remembered" default, always asks). Built around one model: **fixed
+expenses are defined once and recur automatically**; **everything you log day-to-day is
+variable**, tracked against a budget target and your own rolling average.
+- App-mode launcher (Fitness / Finance) + a "🔀 Switch app" affordance from within either
+  mode, with its own 5-tab bar per mode.
+- **Bills** — recurring fixed-expense list (name, amount, category, due day, active
+  toggle); a current-month checklist that logs a real transaction when checked off, while
+  the total always counts toward the monthly fixed obligation regardless of paid status.
+- **Log** — quick-add expense or income transactions (amount, category, note, date);
+  view/delete this month's entries. Tied into Budgets: a live hint under the category
+  picker shows that category's budget and how much is left as you pick it, and a
+  "Category budgets this month" list surfaces every budgeted category at a glance.
+- **Budgets** — monthly target per category, either a fixed $ amount or a **% of expected
+  income** that recomputes automatically as income changes, each with a **recommended
+  percentage range** (commonly-cited financial-planning guidelines) and a one-tap "Use X%"
+  button. **Pay-frequency aware**: choose Weekly / Biweekly / Semi-monthly / Monthly /
+  Annually and enter one pay period's amount — the app converts to a monthly-equivalent
+  and shows a "≈ $X/paycheck" figure on every category budget; logging a "Paycheck" income
+  entry in the Log tab pre-fills from it. A green/yellow/red progress bar compares actual
+  spend to target and to your historical average. An overview shows **exactly how much is
+  left for savings** (income − fixed bills − every budget) with a savings-rate status
+  message and a one-tap way to log that leftover as a goal contribution. Variable and
+  fixed-bill categories are shown separately so Budgets doesn't overlap confusingly with
+  Bills. Currency symbol + custom category management.
+- **Reports** — monthly summary (income / fixed / variable / net / savings rate),
+  spending-by-category breakdown, and a 6-month net-cash-flow trend; browse any of the
+  last 12 months.
+- **Home** — net cash flow this month, bills-paid tracker, over-budget alerts, a
+  quick-glance goals teaser, recent transactions.
+- Income tracking included (paychecks, freelance, etc.) so net cash flow and savings rate
+  are visible, not just spending.
+- **Goals tab** — multiple named **savings goals** (target amount + optional target date,
+  manual contribution logging, $/month pacing math with an on-track/behind indicator);
+  **sinking funds** for predictable-but-irregular costs (annual insurance, gifts) that log
+  a real expense and reset for their next cycle when "spent"; a **debt payoff planner**
+  (avalanche or snowball ordering, extra-payment cascading, month-by-month simulation,
+  total interest and debt-free date).
+
+- **Invest tab** — a 6-question risk quiz (age, horizon, drawdown tolerance, experience,
+  income stability, emergency fund) scoring into a Conservative / Balanced / Growth /
+  Aggressive **model portfolio** across US stocks, international stocks, bonds, cash,
+  and a small crypto slice (capped ~10% even at the aggressive end), with example
+  low-cost index ETFs and a ~70/30 BTC/ETH crypto split. Safety gates: a <3-year horizon
+  caps the plan at Conservative; no emergency fund caps it at Balanced with a
+  build-3-months-first nudge. The monthly amount auto-derives from the Budgets leftover
+  (income − fixed − budgets) and splits into per-bucket dollars. A **holdings tracker**
+  (shares/coins, optional cost basis) values the portfolio with **live prices** — crypto
+  via CoinGecko (keyless), stocks via an optional free finnhub.io key — cached in state
+  for offline, with gain/loss and an actual-vs-target **drift view** (5+ point drift
+  flags where new money should go). Clearly framed as educational rules of thumb, not
+  financial advice. *(Note: this is the one feature that optionally touches the network;
+  everything still works offline with manual/cached prices.)*
+
+### Ideas for a future finance phase (not yet built)
+- Recurring-bill due-date reminders / "due soon" nudges
+- CSV export of transactions for spreadsheets / taxes
+- Multi-month budget trend per category (not just current month vs. average)
+- Recurring income setup (define paycheck schedule once instead of logging each payday)
+- Invest: price auto-refresh on tab open (throttled), more coins, portfolio value history
+
+---
+
 ## 🚧 Phase 1 — Daily-driver quality of life
 High-value, self-contained, used every session.
-1. **Exercise swap button** 🚧 — sub any movement mid-workout for another that hits the
-   same muscle (equipment-aware). Persists into the program.
-2. **Plate + warm-up calculator** ⏳ — for a target working weight, show the exact plate
-   loadout per side and an auto-generated warm-up ramp (e.g. bar → 50% → 70% → 85%).
-3. **PR detection + celebrations** ⏳ — auto-detect personal records (top weight, rep PR,
-   estimated 1RM) on save and celebrate them; store a PR history.
+1. **Exercise swap button** ✅ — sub any movement mid-workout for **any exercise in the
+   library** (same-muscle, equipment-matched options are just sorted to the top for
+   convenience — nothing is off-limits). Persists into the program.
+1b. **Program Builder** ✅ — build your own workout from scratch instead of only
+    auto-generating: name it, add/remove days, and add any exercise from the full
+    library to any day (no muscle-group restriction), editing sets and rep range
+    per exercise. Reachable from Setup → "Build your own program" (or "Edit in
+    Program Builder" to hand-tune an existing auto-generated one). Runs through the
+    same workout logger, progression suggestions, plate calculator, and coverage
+    report as generated programs.
+1c. **Freeform exercise picking on the Workout tab** ✅ — the Workout tab is no longer
+    limited to viewing whatever's in a saved program day: an "+ Add exercise from
+    library" button (plus a remove button per card) lets you add or drop any exercise
+    for today on the fly, whether or not it belongs to your saved program. With no
+    program at all, "Or just start today" builds a one-off session from scratch by
+    picking exercises straight from the library — no generating or building required
+    first. Fixed a related papercut where swapping/adding/removing one exercise would
+    silently wipe weights/reps already typed into other cards on the same day; typed
+    values now survive these re-renders.
+2. **Plate + warm-up calculator** ✅ — for a target working weight, shows the exact plate
+   loadout per side and an auto-generated warm-up ramp (bar → 50% → 70% → 85% → work).
+   Configurable bar weight; unit-aware plate set.
+3. **PR detection + celebrations** ✅ — auto-detects personal records (top weight and
+   estimated 1RM via Epley) when you log sets, fires a confetti celebration (with haptic
+   buzz), and stores a PR history shown on the Dashboard and Progress tabs. The first-ever
+   log of a lift sets a baseline without a false celebration.
 4. **Saved meals & one-tap re-log** ⏳ — save frequent meals/recipes; re-log in a tap.
 
 ## ⏳ Phase 2 — Progress & motivation
