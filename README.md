@@ -92,10 +92,13 @@ budget target and your own rolling average.
 | **Bills** | Your recurring **fixed bills** list (rent, subscriptions, insurance, loans, etc.) — set up once with a name, amount, category, and due day. Check one off each month to log it as paid; the total always counts toward your monthly fixed obligation whether or not it's checked off. |
 | **Goals** | **Savings goals** (Emergency Fund, Vacation, etc.) with an optional target date — log contributions and see a progress bar plus the $/month pace needed to hit your date, with an on-track/behind indicator. **Sinking funds** cover predictable-but-irregular costs (annual insurance, holiday gifts): set a target, contribute over time, then "spend it" to log the real expense and reset the fund for its next cycle. Also includes a **debt payoff planner** — add loans/cards with balance, APR, and minimum payment, choose avalanche (highest APR first, least total interest) or snowball (smallest balance first, faster early wins), add an extra monthly payment, and see a month-by-month payoff timeline and total interest. |
 | **Budgets** | Set an **expected monthly income** and see exactly how much is left for savings after fixed bills and every category budget — with a savings-rate status message against the common ~20% guideline. Each category budget can be a fixed **$** amount or a **% of income** that recomputes automatically as income changes, with a **recommended % range** (e.g. Groceries 10–15%) and a one-tap "Use X%" button. Variable-spending categories are separated from fixed-bill categories (already tracked via Bills). Manage the currency symbol and add custom categories here too. |
+| **Invest** | A 6-question **risk quiz** (age, time horizon, drop tolerance, experience, income stability, emergency fund) that maps you to a **Conservative / Balanced / Growth / Aggressive** model portfolio across US stocks, international stocks, bonds, cash, and a small crypto slice — with example low-cost index ETFs (VTI, VXUS, BND…) and a ~70/30 BTC/ETH split for the crypto sliver. The monthly invest amount is **auto-suggested from your Budgets leftover** (income − fixed bills − budgets) and split into per-bucket dollar amounts. Track your **actual holdings** (shares/coins + optional cost basis) with **live prices** — crypto via CoinGecko (no key needed), stocks/ETFs via an optional free finnhub.io key, with last-fetched prices cached for offline — plus gain/loss and an **actual-vs-target drift view** that tells you which bucket to point new money at. Educational rules of thumb, not financial advice. |
 | **Reports** | Monthly summary (income / fixed / variable / net / savings rate), a spending-by-category breakdown, and a 6-month net-cash-flow trend — pick any of the last 12 months. |
 
 All figures are computed live from your logged transactions, fixed-bill list, goals, and
-debts — nothing needs a bank connection or the internet.
+debts — nothing needs a bank connection or the internet. The one optional exception:
+the Invest tab can fetch **live stock & crypto prices** when you're online (and remembers
+the last prices for offline use).
 
 ### Percentage-based budgets
 
@@ -120,6 +123,23 @@ The overview at the top of Budgets shows **exactly how much is left for savings*
 `income − fixed bills − every category budget`, with a status message against the common
 ~20% savings-rate guideline, and a one-tap way to log that leftover as a contribution to
 any active savings goal.
+
+### Investing recommendations (Invest tab)
+
+Retake the quiz anytime — the plan updates instantly. Two **safety gates** override the
+raw score: money you'll need within ~3 years caps the plan at Conservative (short-term
+money belongs in savings/T-bills, not stocks), and having **no emergency fund** caps it
+at Balanced with a nudge to build ~3 months of expenses (as a Goal) first.
+
+**Live prices:** crypto quotes come from CoinGecko automatically for ~25 common coins —
+no signup. Stock/ETF quotes need a free API key from [finnhub.io](https://finnhub.io)
+(create an account, copy the key, paste it under *Live price settings*). Prices are
+fetched in USD, cached on your phone, and shown with a "live · Xm ago" stamp so offline
+values are never silently stale; any holding can also carry a manual price instead.
+
+> ⚠️ Everything in the Invest tab is commonly-cited, rule-of-thumb guidance for
+> educational use — **not personalized financial advice**. Markets can lose money, and
+> crypto is treated as a small, lose-able satellite position throughout.
 
 ## 🧠 How the auto-generator works
 

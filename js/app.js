@@ -44,6 +44,13 @@ const DEFAULT_STATE = {
     debtExtraPayment: 0,
     expectedIncome: null, // manual override, in units of incomeFrequency; falls back to logged-income average
     incomeFrequency: "monthly", // 'weekly'|'biweekly'|'semimonthly'|'monthly'|'annually'
+    invest: {
+      quizAnswers: null,   // {questionId -> option index} — null until quiz taken
+      holdings: [],        // [{id, kind:'stock'|'crypto', symbol, quantity, costPerUnit?, manualPrice?, bucket?}]
+      priceCache: {},      // 'stock:VTI'|'crypto:BTC' -> {price, at} — last fetched USD prices, kept for offline
+      monthlyOverride: null, // manual monthly invest amount; null = derive from budget leftover
+      finnhubKey: "",      // optional free finnhub.io API key for live stock quotes (crypto needs no key)
+    },
   },
   createdAt: new Date().toISOString(),
 };
@@ -143,15 +150,18 @@ const MODES = {
       { route: "fin-bills",   ico: "📅", label: "Bills" },
       { route: "fin-goals",   ico: "🐷", label: "Goals" },
       { route: "fin-budgets", ico: "🎯", label: "Budgets" },
+      { route: "fin-invest",  ico: "📈", label: "Invest" },
       { route: "fin-reports", ico: "📊", label: "Reports" },
     ],
     render: {
       "fin-home": renderFinHome, "fin-log": renderFinLog, "fin-bills": renderFinBills,
-      "fin-goals": renderFinGoals, "fin-budgets": renderFinBudgets, "fin-reports": renderFinReports,
+      "fin-goals": renderFinGoals, "fin-budgets": renderFinBudgets, "fin-invest": renderFinInvest,
+      "fin-reports": renderFinReports,
     },
     wire: {
       "fin-home": wireFinHome, "fin-log": wireFinLog, "fin-bills": wireFinBills,
-      "fin-goals": wireFinGoals, "fin-budgets": wireFinBudgets, "fin-reports": wireFinReports,
+      "fin-goals": wireFinGoals, "fin-budgets": wireFinBudgets, "fin-invest": wireFinInvest,
+      "fin-reports": wireFinReports,
     },
   },
 };
@@ -1834,6 +1844,7 @@ function renderFinHome() {
     <div class="card"><div class="suggestion">✅ No categories over budget this month.</div></div>`}
 
     ${renderGoalsTeaser()}
+    ${renderInvestTeaser()}
 
     <div class="card">
       <div class="card-label">Recent transactions</div>
@@ -1859,6 +1870,18 @@ function renderGoalsTeaser() {
     <div class="card-label">${next.kind === "sinking" ? "🧩 Sinking fund" : "🐷 Savings goal"} · ${esc(next.name)}</div>
     <div class="bar"><div class="bar-fill" style="width:${pct}%;background:#51cf66"></div></div>
     <div class="muted small">${fmtMoneyShort(current)} / ${fmtMoneyShort(next.target)}${active.length > 1 ? ` · +${active.length - 1} more goal${active.length > 2 ? "s" : ""}` : ""}</div>
+  </button>`;
+}
+
+// Quick-glance card for the investment portfolio (only once holdings exist).
+function renderInvestTeaser() {
+  const inv = state.finance.invest;
+  if (!inv || !inv.holdings.length) return "";
+  const { total } = portfolioBreakdown(inv.holdings, inv.priceCache);
+  return `<button class="card" data-nav="fin-invest">
+    <div class="card-label">📈 Portfolio</div>
+    <div class="big">${fmtMoneyShort(total)}</div>
+    <div class="muted small">${inv.holdings.length} holding${inv.holdings.length > 1 ? "s" : ""} · tap for plan & prices</div>
   </button>`;
 }
 
@@ -2665,6 +2688,342 @@ function showDebtEditModal(d) {
     if (confirm(`Delete "${d.name}"?`)) {
       state.finance.debts = state.finance.debts.filter(x => x.id !== d.id);
       save(); modal.remove(); render(); toast("Debt deleted");
+    }
+  });
+  document.body.appendChild(modal);
+}
+
+/* ---- Finance: Invest (risk quiz → model portfolio + holdings tracker) ---- */
+function investState() { return state.finance.invest; }
+
+// Same math as the Budgets overview: what's left of expected income each
+// month after fixed bills and every category budget — the natural pool to
+// invest from. null when income is unknown.
+function monthlySavingsCapacity() {
+  const income = expectedMonthlyIncome();
+  if (income <= 0) return null;
+  return Math.round(income - fixedMonthlyTotal() - totalBudgetedAmount());
+}
+
+// Per-unit price formatting (crypto prices need decimals; totals don't).
+function fmtPrice(n) {
+  if (n == null || isNaN(n)) return "—";
+  const opts = n >= 1000 ? { maximumFractionDigits: 0 }
+    : { minimumFractionDigits: 2, maximumFractionDigits: n < 1 ? 4 : 2 };
+  return financeCurrency() + n.toLocaleString(undefined, opts);
+}
+function fmtAgo(iso) {
+  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 48) return `${hrs}h ago`;
+  return `${Math.round(hrs / 24)}d ago`;
+}
+
+/* -- live prices: crypto via CoinGecko (free, no key), stocks via an
+      optional free finnhub.io key. Results are cached in state so the last
+      known price still shows offline. -- */
+async function refreshInvestPrices() {
+  const inv = investState();
+  if (!inv.holdings.length) { toast("Add a holding first"); return; }
+  const now = new Date().toISOString();
+  let ok = 0, needKey = 0, manual = 0, failed = 0;
+
+  const cryptos = inv.holdings.filter(h => h.kind === "crypto");
+  const knownCryptos = cryptos.filter(h => CRYPTO_COINGECKO_IDS[h.symbol.toUpperCase()]);
+  manual += cryptos.length - knownCryptos.length;
+  if (knownCryptos.length) {
+    const ids = [...new Set(knownCryptos.map(h => CRYPTO_COINGECKO_IDS[h.symbol.toUpperCase()]))];
+    try {
+      const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids.join(",")}&vs_currencies=usd`);
+      if (!res.ok) throw new Error(res.status);
+      const data = await res.json();
+      knownCryptos.forEach(h => {
+        const price = data[CRYPTO_COINGECKO_IDS[h.symbol.toUpperCase()]]?.usd;
+        if (price > 0) { inv.priceCache[holdingPriceKey(h)] = { price, at: now }; ok++; }
+        else failed++;
+      });
+    } catch { failed += knownCryptos.length; }
+  }
+
+  const stocks = inv.holdings.filter(h => h.kind === "stock" && h.symbol.toUpperCase() !== "HYSA");
+  if (stocks.length && !inv.finnhubKey) needKey += stocks.length;
+  else {
+    for (const h of stocks) {
+      try {
+        const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(h.symbol.toUpperCase())}&token=${encodeURIComponent(inv.finnhubKey)}`);
+        if (!res.ok) throw new Error(res.status);
+        const data = await res.json();
+        if (data.c > 0) { inv.priceCache[holdingPriceKey(h)] = { price: data.c, at: now }; ok++; }
+        else failed++;
+      } catch { failed++; }
+    }
+  }
+
+  save(); render();
+  const bits = [`${ok} updated`];
+  if (needKey) bits.push(`${needKey} need a Finnhub key`);
+  if (manual) bits.push(`${manual} manual-price only`);
+  if (failed) bits.push(`${failed} failed${navigator.onLine === false ? " (offline)" : ""}`);
+  toast(`Prices: ${bits.join(" · ")}`);
+}
+
+function investQuizCardHTML(inv) {
+  const answers = inv.quizAnswers || {};
+  const result = scoreRiskQuiz(inv.quizAnswers);
+  if (result) {
+    const p = RISK_PROFILES[result.profileId];
+    return `<div class="card accent">
+      <div class="card-label">Your risk profile</div>
+      <div class="big">${p.icon} ${p.label}</div>
+      <p class="muted small">${p.blurb} (Quiz score ${result.score}/${result.max}.)</p>
+      <button id="invest-retake" class="btn small block">↺ Retake quiz</button>
+    </div>`;
+  }
+  const answered = RISK_QUIZ.filter(q => answers[q.id] != null).length;
+  return `<div class="card accent">
+    <div class="card-label">Risk quiz · ${answered}/${RISK_QUIZ.length} answered</div>
+    <p class="muted small">Answer these to get a suggested portfolio mix across stocks, bonds, cash and crypto.</p>
+    ${RISK_QUIZ.map(q => `
+      <div class="quiz-q">
+        <div class="quiz-question">${q.q}</div>
+        <div class="chips">${q.opts.map((o, i) =>
+          `<button class="chip ${answers[q.id] === i ? "sel" : ""}" data-quiz-q="${q.id}" data-quiz-opt="${i}">${o.label}</button>`).join("")}
+        </div>
+      </div>`).join("")}
+  </div>`;
+}
+
+function investFlagsHTML(flags) {
+  const msgs = {
+    shortHorizon: "⏳ You may need this money within ~3 years, so the plan is capped at Conservative — money needed soon usually belongs in high-yield savings or T-bills, not the stock market.",
+    noEmergencyFund: "🚨 No emergency fund yet — the common advice is to build ~3 months of expenses (as a Goal here) before investing seriously. The plan is capped at Balanced; consider investing only a small habit-building amount for now.",
+    thinEmergencyFund: "🟡 Your emergency fund is under 3 months of expenses — consider splitting your monthly savings between finishing it and investing.",
+  };
+  return flags.map(f => msgs[f] ? `<div class="suggestion suggestion-add-reps">${msgs[f]}</div>` : "").join("");
+}
+
+function investPlanCardHTML(inv, result) {
+  if (!result) return "";
+  const capacity = monthlySavingsCapacity();
+  const monthly = inv.monthlyOverride ?? Math.max(0, capacity ?? 0);
+  const plan = buildInvestPlan(result.profileId, monthly);
+  const alloc = RISK_PROFILES[result.profileId].allocation;
+
+  const capacityNote = capacity === null
+    ? `Set your expected income in Budgets to auto-suggest a monthly amount.`
+    : capacity <= 0
+      ? `Your budgets currently leave nothing over (${fmtMoneyShort(capacity)}) — trim a budget in the Budgets tab to free up money to invest.`
+      : `Auto-suggested from Budgets: income − fixed bills − budgets = ${fmtMoneyShort(capacity)}/mo available.`;
+
+  return `<div class="card">
+    <div class="card-label">Monthly investing plan</div>
+    ${investFlagsHTML(result.flags)}
+    <div class="macro-inputs">
+      <input id="invest-monthly" class="input" inputmode="decimal" placeholder="${capacity && capacity > 0 ? capacity : "Monthly amount"}"
+        value="${inv.monthlyOverride ?? ""}" />
+      <div class="muted small" style="align-self:center">${financeCurrency()}/month to invest</div>
+    </div>
+    <p class="muted small">${capacityNote}</p>
+    ${ALLOCATION_BUCKETS.filter(b => alloc[b.id] > 0).map(b => {
+      const row = plan.find(r => r.bucket.id === b.id);
+      return `<div class="vol-row">
+        <span class="vol-label">${b.icon} ${esc(b.name)}</span>
+        <div class="bar"><div class="bar-fill" style="width:${alloc[b.id]}%;background:${b.color}"></div></div>
+        <span class="vol-num">${alloc[b.id]}%${row && monthly > 0 ? ` · ${fmtMoneyShort(row.amount)}` : ""}</span>
+      </div>
+      <div class="muted small invest-examples">e.g. ${b.examples.map(e => `<strong>${e.symbol}</strong> (${esc(e.name)})`).join(" · ")}</div>`;
+    }).join("")}
+    <p class="muted small">💡 Rules of thumb: broad low-cost index funds over stock-picking, automate the monthly buy, rebalance about once a year, and keep crypto a small slice you could afford to lose entirely.</p>
+  </div>`;
+}
+
+function holdingRowHTML(h, inv) {
+  const cached = inv.priceCache[holdingPriceKey(h)];
+  const price = (cached && cached.price) ?? h.manualPrice ?? h.costPerUnit ?? null;
+  const value = holdingValue(h, inv.priceCache);
+  const src = cached ? `live · ${fmtAgo(cached.at)}` : h.manualPrice != null ? "manual price" : h.costPerUnit != null ? "at cost" : "no price";
+  let gain = "";
+  if (h.costPerUnit > 0 && price != null) {
+    const pct = ((price - h.costPerUnit) / h.costPerUnit) * 100;
+    gain = ` · <span style="color:${pct >= 0 ? "#51cf66" : "#ff8787"}">${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%</span>`;
+  }
+  const bucket = h.kind === "crypto" ? BUCKET_BY_ID.crypto : BUCKET_BY_ID[h.bucket || guessBucketForSymbol(h.symbol)];
+  return `<div class="bill-row">
+    <div class="bill-info">
+      <div class="bill-name">${h.kind === "crypto" ? "₿" : "📈"} ${esc(h.symbol.toUpperCase())} <span class="muted small">× ${h.quantity}</span></div>
+      <div class="muted small">${bucket.icon} ${esc(bucket.name)} · ${fmtPrice(price)} · ${src}${gain}</div>
+    </div>
+    <div class="bill-amt">${fmtMoneyShort(value)}</div>
+    <button class="icon-btn" data-edit-holding="${h.id}">✎</button>
+  </div>`;
+}
+
+function investPortfolioCardHTML(inv) {
+  const { total } = portfolioBreakdown(inv.holdings, inv.priceCache);
+  return `<div class="card">
+    <div class="card-label">Your portfolio${inv.holdings.length ? ` · ${fmtMoneyShort(total)}` : ""}</div>
+    ${inv.holdings.length
+      ? inv.holdings.map(h => holdingRowHTML(h, inv)).join("")
+      : `<p class="muted center">No holdings yet. Add what you own below — shares of an ETF/stock or an amount of crypto — to track its value against the plan.</p>`}
+    ${inv.holdings.length ? `<button id="invest-refresh" class="btn block">🔄 Refresh live prices</button>` : ""}
+
+    <div class="card-label" style="margin-top:14px">Add a holding</div>
+    <div class="fin-type-toggle">
+      <button class="fin-type-btn active" data-holding-kind="stock">📈 Stock / ETF</button>
+      <button class="fin-type-btn" data-holding-kind="crypto">₿ Crypto</button>
+    </div>
+    <div class="macro-inputs">
+      <input id="holding-symbol" class="input" placeholder="Ticker (e.g. VTI)" autocapitalize="characters" />
+      <input id="holding-qty" class="input" inputmode="decimal" placeholder="Quantity" />
+    </div>
+    <input id="holding-cost" class="input" inputmode="decimal" placeholder="Avg cost per share/coin (${financeCurrency()}, optional)" />
+    <button id="holding-add" class="btn primary block">+ Add holding</button>
+
+    <details style="margin-top:10px">
+      <summary class="muted small">Live price settings</summary>
+      <p class="muted small">Crypto prices come from CoinGecko automatically (no key needed) for common coins.
+        Stock/ETF quotes need a free API key from <strong>finnhub.io</strong> — paste it here. Prices are in USD.
+        Without a key you can set a manual price on each holding (tap ✎).</p>
+      <input id="invest-finnhub" class="input" placeholder="Finnhub API key (optional)" value="${esc(inv.finnhubKey || "")}" />
+    </details>
+  </div>`;
+}
+
+function investCompareCardHTML(inv, result) {
+  if (!result || !inv.holdings.length) return "";
+  const { rows, total } = portfolioBreakdown(inv.holdings, inv.priceCache);
+  if (total <= 0) return "";
+  const alloc = RISK_PROFILES[result.profileId].allocation;
+  const ids = new Set([...rows.map(r => r.bucket.id), ...ALLOCATION_BUCKETS.filter(b => alloc[b.id] > 0).map(b => b.id)]);
+  const lines = ALLOCATION_BUCKETS.filter(b => ids.has(b.id)).map(b => {
+    const actual = rows.find(r => r.bucket.id === b.id)?.pct || 0;
+    const target = alloc[b.id] || 0;
+    const drift = actual - target;
+    const flag = Math.abs(drift) >= 5 ? `<span style="color:${drift > 0 ? "#fcc419" : "#22b8cf"}"> · ${drift > 0 ? "▲" : "▼"}${Math.abs(drift).toFixed(0)}pts</span>` : "";
+    return `<div class="vol-row">
+      <span class="vol-label">${b.icon} ${esc(b.name)}</span>
+      <div class="bar invest-compare-bar">
+        <div class="bar-fill" style="width:${Math.min(100, actual)}%;background:${b.color}"></div>
+        <div class="invest-target-tick" style="left:${Math.min(100, target)}%"></div>
+      </div>
+      <span class="vol-num">${actual.toFixed(0)}% / ${target}%${flag}</span>
+    </div>`;
+  }).join("");
+  return `<div class="card">
+    <div class="card-label">Actual vs target mix</div>
+    ${lines}
+    <p class="muted small">Each row shows your actual % vs the plan's target %, and the tick on the bar marks the target. A drift of ~5+ points is the usual cue to point new monthly buys at the underweight bucket (rebalancing with new money beats selling).</p>
+  </div>`;
+}
+
+function renderFinInvest() {
+  const inv = investState();
+  const result = scoreRiskQuiz(inv.quizAnswers);
+  return `
+    <header class="page-head"><h1>Invest</h1><p class="muted">Risk-based portfolio plan · stocks & crypto</p></header>
+    ${investQuizCardHTML(inv)}
+    ${investPlanCardHTML(inv, result)}
+    ${investPortfolioCardHTML(inv)}
+    ${investCompareCardHTML(inv, result)}
+    <p class="muted small center" style="padding:0 8px">Educational rules of thumb only — not financial advice.
+      Markets can lose money; crypto especially can. Do your own research before buying anything.</p>
+  `;
+}
+
+function wireFinInvest() {
+  const inv = investState();
+  $$("[data-quiz-q]").forEach(b => b.addEventListener("click", () => {
+    if (!inv.quizAnswers) inv.quizAnswers = {};
+    inv.quizAnswers[b.dataset.quizQ] = parseInt(b.dataset.quizOpt, 10);
+    save(); render();
+  }));
+  $("#invest-retake")?.addEventListener("click", () => {
+    inv.quizAnswers = null; save(); render();
+  });
+  $("#invest-monthly")?.addEventListener("change", (e) => {
+    const v = parseFloat(e.target.value);
+    inv.monthlyOverride = (isNaN(v) || v < 0) ? null : v;
+    save(); render();
+  });
+  $("#invest-finnhub")?.addEventListener("change", (e) => {
+    inv.finnhubKey = e.target.value.trim(); save(); toast(inv.finnhubKey ? "Key saved — tap Refresh" : "Key cleared");
+  });
+  $("#invest-refresh")?.addEventListener("click", (e) => {
+    e.target.disabled = true; e.target.textContent = "⏳ Fetching…";
+    refreshInvestPrices();
+  });
+
+  let holdingKind = "stock";
+  const kindBtns = $$("[data-holding-kind]");
+  kindBtns.forEach(b => b.addEventListener("click", () => {
+    holdingKind = b.dataset.holdingKind;
+    kindBtns.forEach(x => x.classList.toggle("active", x === b));
+    $("#holding-symbol").placeholder = holdingKind === "crypto" ? "Symbol (e.g. BTC)" : "Ticker (e.g. VTI)";
+  }));
+  $("#holding-add")?.addEventListener("click", () => {
+    const symbol = $("#holding-symbol").value.trim().toUpperCase();
+    const quantity = parseFloat($("#holding-qty").value);
+    const cost = parseFloat($("#holding-cost").value);
+    if (!symbol || isNaN(quantity) || quantity <= 0) { toast("Enter a symbol and quantity"); return; }
+    inv.holdings.push({
+      id: uid(), kind: holdingKind, symbol, quantity,
+      costPerUnit: isNaN(cost) || cost <= 0 ? null : cost,
+      manualPrice: null,
+      bucket: holdingKind === "stock" ? guessBucketForSymbol(symbol) : null,
+    });
+    save(); render(); toast(`${symbol} added ✔ — tap Refresh for a live price`);
+  });
+  $$("[data-edit-holding]").forEach(b => b.addEventListener("click", () => {
+    const h = inv.holdings.find(x => x.id === b.dataset.editHolding);
+    if (h) showHoldingEditModal(h);
+  }));
+}
+
+function showHoldingEditModal(h) {
+  const inv = investState();
+  const stockBuckets = ALLOCATION_BUCKETS.filter(b => b.id !== "crypto");
+  const unknownCrypto = h.kind === "crypto" && !CRYPTO_COINGECKO_IDS[h.symbol.toUpperCase()];
+  const modal = document.createElement("div");
+  modal.className = "modal-backdrop";
+  modal.innerHTML = `
+    <div class="modal">
+      <button class="modal-close">✕</button>
+      <h2>${esc(h.symbol.toUpperCase())}</h2>
+      <div class="card-label">Quantity</div>
+      <input id="eh-qty" class="input" inputmode="decimal" value="${h.quantity}" />
+      <div class="card-label">Avg cost per unit (optional — enables gain/loss)</div>
+      <input id="eh-cost" class="input" inputmode="decimal" value="${h.costPerUnit ?? ""}" placeholder="—" />
+      <div class="card-label">Manual price per unit (used when no live price)</div>
+      <input id="eh-price" class="input" inputmode="decimal" value="${h.manualPrice ?? ""}" placeholder="—" />
+      ${unknownCrypto ? `<p class="muted small">⚠️ ${esc(h.symbol.toUpperCase())} isn't in the built-in CoinGecko list, so live prices won't fetch — keep the manual price updated.</p>` : ""}
+      ${h.kind === "stock" ? `
+        <div class="card-label">Asset class (for the actual-vs-target mix)</div>
+        <select id="eh-bucket" class="select block">${stockBuckets.map(b =>
+          `<option value="${b.id}" ${(h.bucket || guessBucketForSymbol(h.symbol)) === b.id ? "selected" : ""}>${b.icon} ${esc(b.name)}</option>`).join("")}
+        </select>` : ""}
+      <button id="eh-save" class="btn primary block">Save changes</button>
+      <button id="eh-delete" class="btn block danger">Delete holding</button>
+    </div>`;
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal || e.target.classList.contains("modal-close")) modal.remove();
+  });
+  modal.querySelector("#eh-save").addEventListener("click", () => {
+    const qty = parseFloat(modal.querySelector("#eh-qty").value);
+    if (isNaN(qty) || qty <= 0) { toast("Enter a valid quantity"); return; }
+    const cost = parseFloat(modal.querySelector("#eh-cost").value);
+    const price = parseFloat(modal.querySelector("#eh-price").value);
+    h.quantity = qty;
+    h.costPerUnit = isNaN(cost) || cost <= 0 ? null : cost;
+    h.manualPrice = isNaN(price) || price <= 0 ? null : price;
+    if (h.kind === "stock") h.bucket = modal.querySelector("#eh-bucket").value;
+    save(); modal.remove(); render(); toast("Holding updated ✔");
+  });
+  modal.querySelector("#eh-delete").addEventListener("click", () => {
+    if (confirm(`Delete ${h.symbol.toUpperCase()}? This only removes it from tracking.`)) {
+      inv.holdings = inv.holdings.filter(x => x.id !== h.id);
+      save(); modal.remove(); render(); toast("Holding deleted");
     }
   });
   document.body.appendChild(modal);

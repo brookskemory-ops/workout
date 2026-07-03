@@ -71,11 +71,27 @@ variable**, tracked against a budget target and your own rolling average.
   (avalanche or snowball ordering, extra-payment cascading, month-by-month simulation,
   total interest and debt-free date).
 
+- **Invest tab** — a 6-question risk quiz (age, horizon, drawdown tolerance, experience,
+  income stability, emergency fund) scoring into a Conservative / Balanced / Growth /
+  Aggressive **model portfolio** across US stocks, international stocks, bonds, cash,
+  and a small crypto slice (capped ~10% even at the aggressive end), with example
+  low-cost index ETFs and a ~70/30 BTC/ETH crypto split. Safety gates: a <3-year horizon
+  caps the plan at Conservative; no emergency fund caps it at Balanced with a
+  build-3-months-first nudge. The monthly amount auto-derives from the Budgets leftover
+  (income − fixed − budgets) and splits into per-bucket dollars. A **holdings tracker**
+  (shares/coins, optional cost basis) values the portfolio with **live prices** — crypto
+  via CoinGecko (keyless), stocks via an optional free finnhub.io key — cached in state
+  for offline, with gain/loss and an actual-vs-target **drift view** (5+ point drift
+  flags where new money should go). Clearly framed as educational rules of thumb, not
+  financial advice. *(Note: this is the one feature that optionally touches the network;
+  everything still works offline with manual/cached prices.)*
+
 ### Ideas for a future finance phase (not yet built)
 - Recurring-bill due-date reminders / "due soon" nudges
 - CSV export of transactions for spreadsheets / taxes
 - Multi-month budget trend per category (not just current month vs. average)
 - Recurring income setup (define paycheck schedule once instead of logging each payday)
+- Invest: price auto-refresh on tab open (throttled), more coins, portfolio value history
 
 ---
 
