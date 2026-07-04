@@ -16,13 +16,24 @@ function patch(sel, html) {
   return el;
 }
 
-function toast(msg) {
+function toast(msg, opts = {}) {
   let t = $("#toast");
   if (!t) { t = document.createElement("div"); t.id = "toast"; document.body.appendChild(t); }
   t.textContent = msg;
+  if (opts.action) {
+    const btn = document.createElement("button");
+    btn.className = "toast-action";
+    btn.textContent = opts.action;
+    btn.addEventListener("click", () => { t.classList.remove("show"); opts.onAction?.(); });
+    t.appendChild(btn);
+  }
   t.classList.add("show");
   clearTimeout(t._timer);
-  t._timer = setTimeout(() => t.classList.remove("show"), 1900);
+  t._timer = setTimeout(() => t.classList.remove("show"), opts.action ? 6000 : 1900);
+}
+// Delete confirmation pattern: the delete already happened; offer to undo it.
+function toastUndo(msg) {
+  toast(msg, { action: "Undo", onAction: () => { if (undoLast()) { render(); toast("Restored ✓"); } } });
 }
 
 /* ------------------------------ formatters -------------------------------- */

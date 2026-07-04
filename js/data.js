@@ -324,6 +324,152 @@ function transactionsToCSV(transactions, categoryNameById) {
   return [header, ...rows].join("\r\n");
 }
 
+/* ------------------------------ category rules ---------------------------- */
+// First enabled rule whose `match` appears (case-insensitive) in any of the
+// given texts wins. Used to auto-categorize imported/synced transactions.
+function applyRules(rules, ...texts) {
+  const haystacks = texts.filter(Boolean).map(t => String(t).toLowerCase());
+  for (const r of rules || []) {
+    if (r.enabled === false || !r.match) continue;
+    const needle = r.match.toLowerCase();
+    if (haystacks.some(h => h.includes(needle))) return r.categoryId;
+  }
+  return null;
+}
+
+/* ------------------------------ CSV import -------------------------------- */
+// RFC-4180-ish parser: quoted fields (with "" escapes), CR/LF/CRLF rows,
+// auto-detected `,` or `;` delimiter. Returns array of string rows.
+function parseCSV(text) {
+  const firstLine = text.slice(0, text.indexOf("\n") + 1 || text.length);
+  const delim = (firstLine.match(/;/g) || []).length > (firstLine.match(/,/g) || []).length ? ";" : ",";
+  const rows = [];
+  let row = [], field = "", inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else inQuotes = false;
+      } else field += c;
+    } else if (c === '"') {
+      inQuotes = true;
+    } else if (c === delim) {
+      row.push(field); field = "";
+    } else if (c === "\n" || c === "\r") {
+      if (c === "\r" && text[i + 1] === "\n") i++;
+      row.push(field); field = "";
+      if (row.length > 1 || row[0] !== "") rows.push(row);
+      row = [];
+    } else field += c;
+  }
+  row.push(field);
+  if (row.length > 1 || row[0] !== "") rows.push(row);
+  return rows;
+}
+
+// Guesses which column is which from a header row. Returns indices or null.
+function detectCSVColumns(header) {
+  const h = header.map(x => String(x).toLowerCase().trim());
+  const find = (...names) => {
+    for (const n of names) {
+      const i = h.findIndex(col => col === n);
+      if (i >= 0) return i;
+    }
+    for (const n of names) {
+      const i = h.findIndex(col => col.includes(n));
+      if (i >= 0) return i;
+    }
+    return null;
+  };
+  return {
+    date: find("date", "posted", "transaction date", "datum"),
+    amount: find("amount", "value", "betrag"),
+    debit: find("debit", "withdrawal", "money out", "paid out"),
+    credit: find("credit", "deposit", "money in", "paid in"),
+    description: find("description", "memo", "details", "narrative", "reference", "name"),
+    payee: find("payee", "merchant", "counterparty"),
+  };
+}
+
+// Date-format guess across sample strings: if any first-part > 12 → day-first;
+// if any middle-part > 12 → month-first; 4-digit lead → ISO.
+function guessDateFormat(samples) {
+  let sawBigFirst = false;
+  for (const s of samples) {
+    const m = String(s).trim().match(/^(\d{1,4})[\/\-.](\d{1,2})[\/\-.](\d{1,4})/);
+    if (!m) continue;
+    if (m[1].length === 4) return "ymd";
+    if (+m[1] > 12) sawBigFirst = true;
+    if (+m[2] > 12) return "mdy";
+  }
+  return sawBigFirst ? "dmy" : "mdy";
+}
+function parseCSVDate(s, fmt) {
+  const str = String(s).trim();
+  let m = str.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/); // ISO-ish
+  if (m) return `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
+  m = str.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
+  if (!m) return null;
+  let [_, a, b, y] = m;
+  if (y.length === 2) y = "20" + y;
+  const [mo, d] = fmt === "dmy" ? [b, a] : [a, b];
+  if (+mo < 1 || +mo > 12 || +d < 1 || +d > 31) return null;
+  return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
+}
+function parseCSVAmount(s) {
+  if (s == null || s === "") return null;
+  const cleaned = String(s).replace(/[^0-9.,\-()]/g, "");
+  const negParen = /^\(.*\)$/.test(String(s).trim());
+  // 1.234,56 (EU) vs 1,234.56 (US): last separator wins as decimal point
+  let normalized = cleaned.replace(/[()]/g, "");
+  const lastComma = normalized.lastIndexOf(","), lastDot = normalized.lastIndexOf(".");
+  if (lastComma > lastDot) normalized = normalized.replace(/\./g, "").replace(",", ".");
+  else normalized = normalized.replace(/,/g, "");
+  const n = parseFloat(normalized);
+  if (isNaN(n)) return null;
+  return negParen ? -Math.abs(n) : n;
+}
+function normalizeImportDesc(s) {
+  return String(s || "").toLowerCase().replace(/\s+/g, " ").trim();
+}
+// Stable dedupe key so re-importing an overlapping statement skips rows the
+// app has already seen.
+function txnImportKey(date, amount, desc) {
+  return `${date}|${Math.round(Math.abs(amount) * 100)}|${normalizeImportDesc(desc)}`;
+}
+
+// Maps parsed CSV rows through a column mapping into importable transactions.
+// mapping: {date, amount|debit+credit, description?, payee?}, all indices.
+function mapCSVRows(rows, mapping, dateFmt, rules, existingKeys) {
+  const out = [], seen = new Set(existingKeys || []);
+  let skippedDupes = 0, skippedBad = 0;
+  for (const row of rows) {
+    const date = parseCSVDate(row[mapping.date], dateFmt);
+    let amount = null;
+    if (mapping.amount != null) amount = parseCSVAmount(row[mapping.amount]);
+    else {
+      const debit = parseCSVAmount(mapping.debit != null ? row[mapping.debit] : null);
+      const credit = parseCSVAmount(mapping.credit != null ? row[mapping.credit] : null);
+      if (debit) amount = -Math.abs(debit);
+      else if (credit) amount = Math.abs(credit);
+    }
+    if (!date || amount == null || amount === 0) { skippedBad++; continue; }
+    const desc = [mapping.payee != null ? row[mapping.payee] : "", mapping.description != null ? row[mapping.description] : ""]
+      .filter(Boolean).join(" · ").trim();
+    const key = txnImportKey(date, amount, desc);
+    if (seen.has(key)) { skippedDupes++; continue; }
+    seen.add(key);
+    out.push({
+      date, amount: Math.abs(amount), note: desc,
+      type: amount < 0 ? "expense" : "income",
+      suggestedCategory: applyRules(rules, desc),
+      importKey: key,
+    });
+  }
+  return { txns: out, skippedDupes, skippedBad };
+}
+
 /* ============================================================================
  * INVESTING — risk quiz, model allocations, portfolio helpers. Commonly-cited
  * rule-of-thumb guidance for educational use — NOT personalized advice.
@@ -482,6 +628,60 @@ function portfolioBreakdown(holdings, priceCache) {
   return { rows, total };
 }
 
+/* ------------------------------ bank sync (SimpleFIN) --------------------- */
+// Maps a SimpleFIN /accounts response into importable transactions. Pending
+// transactions are skipped (they change/disappear); dedupe via bankId.
+// Amounts are strings: negative = money out (expense).
+function mapSimplefinTransactions(accountsResponse, existingBankIds, rules) {
+  const seen = new Set(existingBankIds || []);
+  const txns = [];
+  const accounts = [];
+  for (const acct of accountsResponse.accounts || []) {
+    accounts.push({
+      id: acct.id,
+      name: acct.name || "Account",
+      org: (acct.org && acct.org.name) || "",
+      balance: parseFloat(acct.balance) || 0,
+      balanceDate: acct["balance-date"] ? dateKey(new Date(acct["balance-date"] * 1000)) : null,
+    });
+    for (const t of acct.transactions || []) {
+      if (t.pending) continue;
+      const bankId = `${acct.id}:${t.id}`;
+      if (seen.has(bankId)) continue;
+      seen.add(bankId);
+      const amount = parseFloat(t.amount);
+      if (!amount) continue;
+      const desc = [t.payee, t.description].filter(Boolean).join(" · ");
+      txns.push({
+        date: dateKey(new Date((t.transacted_at || t.posted) * 1000)),
+        amount: Math.abs(amount),
+        type: amount < 0 ? "expense" : "income",
+        note: desc,
+        suggestedCategory: applyRules(rules, t.payee, t.description),
+        bankId, accountId: acct.id, inbox: true,
+      });
+    }
+  }
+  return { txns, accounts };
+}
+
+/* ------------------------------ rollover budgets --------------------------- */
+// Envelope carry for a category: Σ over closed months since rolloverSince of
+// (planned − spent), surplus and deficit both. Capped at 24 months back.
+function rolloverCarry(transactions, budgets, bills, categoryId, key, monthlyIncome) {
+  const entry = normalizeBudgetEntry(budgets[categoryId]);
+  if (!entry || !entry.rollover || !entry.rolloverSince) return 0;
+  const planned = categoryPlanned(budgets, bills, categoryId, monthlyIncome);
+  if (!planned) return 0;
+  let carry = 0;
+  let m = entry.rolloverSince > addMonths(key, -24) ? entry.rolloverSince : addMonths(key, -24);
+  while (m < key) {
+    carry += planned - categorySpend(transactions, m, categoryId);
+    m = addMonths(m, 1);
+  }
+  return Math.round(carry);
+}
+
 /* ------------------------------ migration --------------------------------- */
 // Pure mapper: parsed legacy "monsterMode.v1" blob → the Keel state fields it
 // carries. Returns null when there's nothing to migrate. NEVER mutates or
@@ -542,5 +742,8 @@ if (typeof module !== "undefined") {
     scoreRiskQuiz, buildInvestPlan, CRYPTO_COINGECKO_IDS, STOCK_BUCKET_GUESS,
     guessBucketForSymbol, holdingValue, holdingPriceKey, portfolioBreakdown,
     migrateFromMonsterMode,
+    applyRules, parseCSV, detectCSVColumns, guessDateFormat, parseCSVDate,
+    parseCSVAmount, normalizeImportDesc, txnImportKey, mapCSVRows,
+    mapSimplefinTransactions, rolloverCarry,
   };
 }

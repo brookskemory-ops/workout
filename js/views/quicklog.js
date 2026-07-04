@@ -13,7 +13,7 @@ function defaultExpenseCategory() {
 // Live "how much room is left" hint for the selected expense category.
 function quickLogBudgetHintHTML(categoryId, key) {
   if (!categoryId) return "";
-  const bs = budgetStatus(state.transactions, state.budgets, state.bills, categoryId, key, expectedMonthlyIncome());
+  const bs = catBudgetStatus(categoryId, key);
   if (!bs.target) return `<span class="faint">No budget set for this category yet.</span>`;
   const remaining = bs.target - bs.spent;
   const cls = statusCls(bs.status);
@@ -78,6 +78,7 @@ function openQuickLog(presetType) {
         date: dateInput.value || todayKey(),
       });
       closeOverlay(root);
+      buzz();
       toast(`${curType === "income" ? "Income" : "Expense"} logged ✓`);
       render();
     });

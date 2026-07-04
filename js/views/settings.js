@@ -27,10 +27,32 @@ function renderSettings() {
       <div class="card-label">Preferences</div>
       <label class="field-label">Currency symbol</label>
       <input id="set-currency" class="input" value="${esc(currency())}" maxlength="3" />
+      <label class="field-label">Theme</label>
+      <select id="set-theme" class="select">
+        <option value="dark" ${state.ui.theme === "dark" ? "selected" : ""}>Dark</option>
+        <option value="light" ${state.ui.theme === "light" ? "selected" : ""}>Light</option>
+        <option value="system" ${state.ui.theme === "system" ? "selected" : ""}>Match system</option>
+      </select>
       <label style="display:flex;align-items:center;gap:10px;font-size:0.92rem">
         <input type="checkbox" id="set-backup-reminder" ${state.settings.backupReminder ? "checked" : ""}/>
         Remind me to back up when data piles up
       </label>
+    </div>
+
+    <div class="card">
+      <div class="card-label">PIN lock</div>
+      ${hasPIN() ? `
+        <p class="row-sub" style="margin-bottom:10px">🔒 On — the app locks when opened and after 2 minutes in the background.</p>
+        <button id="pin-change" class="btn block">Change PIN</button>
+        <button id="pin-off" class="btn danger block">Turn off PIN</button>
+      ` : `
+        <p class="row-sub" style="margin-bottom:10px">Add a 4–6 digit PIN so your money data isn't one pocket-unlock away. No recovery exists — if you forget it, the only way back in is erasing the app's data (keep a JSON backup!).</p>
+        <div class="input-pair">
+          <input id="pin-new" class="input" inputmode="numeric" maxlength="6" placeholder="New PIN" style="margin-bottom:0" />
+          <input id="pin-confirm" class="input" inputmode="numeric" maxlength="6" placeholder="Confirm" style="margin-bottom:0" />
+        </div>
+        <button id="pin-on" class="btn primary block" style="margin-top:10px">🔒 Turn on PIN lock</button>
+      `}
     </div>
 
     <div class="card">
@@ -48,6 +70,42 @@ function renderSettings() {
         </select>
       </div>
       <button id="cc-add" class="btn block" style="margin-top:10px">+ Add category</button>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Bank sync <span class="row-sub">(via SimpleFIN Bridge)</span></div>
+      ${state.bank.accessUrl ? `
+        <p class="row-sub" style="margin-bottom:10px">Connected · ${state.bank.accounts.length} account${state.bank.accounts.length === 1 ? "" : "s"}${state.bank.lastSyncAt ? ` · synced ${fmtAgo(state.bank.lastSyncAt)}` : ""}</p>
+        ${state.bank.accounts.map(a => `<div class="vol-row">
+          <span class="vol-label">🏦 ${esc(a.name)}</span>
+          <span class="row-sub">${esc(a.org)}</span>
+          <span class="vol-num money">${fmtMoney(a.balance)}</span>
+        </div>`).join("")}
+        <button id="bank-sync-now" class="btn primary block" style="margin-top:10px">↻ Sync now</button>
+        <button id="bank-disconnect" class="btn danger block">Disconnect (removes the stored access key)</button>
+      ` : `
+        <p class="row-sub" style="margin-bottom:10px">Pull transactions from your real bank accounts automatically — no server involved, your credentials never touch this app.
+        <br><br>1. Create an account at <strong>bridge.simplefin.org</strong> (small monthly fee, paid to them) and connect your banks there.
+        <br>2. Generate a <strong>setup token</strong> ("Connect an app") and paste it below — one time only.
+        <br>3. New transactions land in your Inbox to sort, and account balances feed your net worth.</p>
+        <input id="bank-token" class="input" placeholder="Paste SimpleFIN setup token (or access URL)" />
+        <button id="bank-connect" class="btn primary block">Connect</button>
+        <p class="row-sub">The resulting access key is stored only on this device. Anyone with access to this phone and no PIN could read it — consider the PIN lock below.</p>
+      `}
+    </div>
+
+    <div class="card">
+      <div class="card-label">Auto-categorization rules</div>
+      ${state.rules.length ? state.rules.map(r => `<div class="vol-row">
+        <span class="vol-label">"${esc(r.match)}"</span>
+        <span class="row-sub">→ ${esc(expenseCatById(r.categoryId).name)}</span>
+        <button class="icon-btn" data-del-rule="${r.id}" aria-label="Delete rule">✕</button>
+      </div>`).join("") : `<p class="row-sub" style="margin-bottom:10px">Rules file imported transactions automatically ("uber" → Transport). The Inbox creates them for you as you sort, or add one here.</p>`}
+      <div class="input-pair" style="margin-top:8px">
+        <input id="rule-match" class="input" placeholder="Text to match" style="margin-bottom:0" />
+        <select id="rule-category" class="select" style="margin-bottom:0">${categoryOptionsHTML(allExpenseCategories())}</select>
+      </div>
+      <button id="rule-add" class="btn block" style="margin-top:10px">+ Add rule</button>
     </div>
 
     <div class="card">
@@ -87,6 +145,32 @@ function wireSettings() {
     render();
   });
   $("#set-backup-reminder")?.addEventListener("change", (e) => setSetting("backupReminder", e.target.checked));
+  $("#set-theme")?.addEventListener("change", (e) => {
+    mutate(s => { s.ui.theme = e.target.value; });
+    applyTheme();
+    render();
+  });
+
+  const validPin = (p) => /^\d{4,6}$/.test(p);
+  $("#pin-on")?.addEventListener("click", async () => {
+    const pin = $("#pin-new").value, confirmPin = $("#pin-confirm").value;
+    if (!validPin(pin)) { toast("PIN must be 4–6 digits"); return; }
+    if (pin !== confirmPin) { toast("PINs don't match"); return; }
+    await setPIN(pin);
+    render(); toast("PIN lock on 🔒");
+  });
+  $("#pin-change")?.addEventListener("click", () => {
+    showLockScreen(() => {
+      clearPIN();
+      render(); toast("Verified — set your new PIN");
+    });
+  });
+  $("#pin-off")?.addEventListener("click", () => {
+    showLockScreen(() => {
+      clearPIN();
+      render(); toast("PIN lock off");
+    });
+  });
 
   $("#cc-add")?.addEventListener("click", () => {
     const name = $("#cc-name").value.trim();
@@ -100,6 +184,42 @@ function wireSettings() {
       deleteCustomCategory(c.id);
       render(); toast("Category deleted");
     }
+  }));
+
+  $("#bank-connect")?.addEventListener("click", async (e) => {
+    const input = $("#bank-token").value;
+    if (!input.trim()) { toast("Paste your setup token first"); return; }
+    e.target.disabled = true; e.target.textContent = "Connecting…";
+    try {
+      const accessUrl = await connectBank(input);
+      setBankAccess(accessUrl);
+      toast("Connected ✓ — syncing…");
+      render();
+      syncBank(false);
+    } catch (err) {
+      toast(err.message);
+      e.target.disabled = false; e.target.textContent = "Connect";
+    }
+  });
+  $("#bank-sync-now")?.addEventListener("click", (e) => {
+    e.target.disabled = true; e.target.textContent = "⏳ Syncing…";
+    syncBank(false);
+  });
+  $("#bank-disconnect")?.addEventListener("click", () => {
+    if (confirm("Disconnect bank sync? The stored access key is deleted from this device. Already-imported transactions stay.")) {
+      disconnectBank(); render(); toast("Disconnected");
+    }
+  });
+
+  $("#rule-add")?.addEventListener("click", () => {
+    const match = $("#rule-match").value.trim();
+    if (!match) { toast("Enter text to match"); return; }
+    addRule(match, $("#rule-category").value);
+    render(); toast("Rule added ✓");
+  });
+  $$("[data-del-rule]").forEach(b => b.addEventListener("click", () => {
+    deleteRule(b.dataset.delRule);
+    render(); toastUndo("Rule deleted");
   }));
 
   $("#export-json")?.addEventListener("click", () => {

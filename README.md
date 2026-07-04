@@ -29,10 +29,36 @@ online open.
 | **Plan → Bills** | Recurring bills set up once; check them off monthly. Marking paid logs a real transaction dated the bill's **due day in the month you're viewing**. |
 | **Plan → Goals** | Savings goals and sinking funds with pacing math ("need $X/mo to hit your date"), plus a debt payoff planner (avalanche/snowball, extra-payment cascade, debt-free date, total interest). |
 | **Invest** | A 6-question risk quiz → Conservative / Balanced / Growth / Aggressive model portfolio across US stocks, international stocks, bonds, cash, and a small crypto slice (capped ~10%), with example low-cost index ETFs and a ~70/30 BTC/ETH split. The monthly amount auto-derives from your budget leftover. Track holdings with live prices — crypto via CoinGecko (no key), stocks via a free [finnhub.io](https://finnhub.io) key — plus gain/loss, an actual-vs-target drift view, and portfolio value over time. Safety gates: money needed within ~3 years caps the plan at Conservative; no emergency fund caps it at Balanced. |
-| **Settings (⚙)** | Currency, custom categories, and the data-safety suite: **JSON backup/restore, CSV transaction export, a rolling week of automatic on-device snapshots**, and backup reminders. |
+| **📥 Inbox** | Imported and bank-synced transactions land here uncategorized — file each one by tapping a category chip or **dragging the card onto one**. An "always do this" toggle turns any decision into an auto-categorization rule. |
+| **Settings (⚙)** | Currency, dark/light/system **theme**, custom categories, **auto-categorization rules**, **bank sync**, **PIN lock**, and the data-safety suite: JSON backup/restore, CSV transaction export & **import**, a rolling week of automatic on-device snapshots, and backup reminders. |
 
 > ⚠️ Budget guidelines and investing suggestions are commonly-cited rules of
 > thumb for educational use — **not personalized financial advice**.
+
+## 🏦 Bank sync (optional)
+
+Keel can pull transactions from your real bank accounts with **no server
+involved**, via [SimpleFIN Bridge](https://bridge.simplefin.org) — a
+third-party service (small monthly fee, paid to them) that connects to
+thousands of institutions. Create an account there, connect your banks, and
+paste a **setup token** into Keel's Settings → Bank sync. New transactions
+appear in your Inbox to sort (rules learn as you go), account balances feed
+your net worth, and syncs run automatically about every 6 hours when you open
+the app. The access credential is stored **only on this device** — pair it
+with the PIN lock. Prefer zero third parties? The **CSV import** wizard
+(Activity → Import CSV) does the same job manually with statements you
+download from your bank.
+
+## 🤖 Automation
+
+- **Autopay bills** — flag any bill and Keel logs it automatically on its due
+  day each month.
+- **Paycheck auto-log** — with a pay schedule set, paydays log themselves
+  (skipped when a matching income entry already exists, e.g. from bank sync).
+- **Envelope rollover** — per-budget toggle: unspent money (or overspend)
+  carries into next month's target.
+- **Monthly recap** — the first open of a new month shows last month's story:
+  net, top categories, budgets met, and everything Keel did for you.
 
 ## 🔒 Data & privacy
 

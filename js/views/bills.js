@@ -19,7 +19,7 @@ function billsSegmentHTML() {
         style="${paid ? "background:var(--pos-soft);border-color:var(--pos)" : ""}">${paid ? "✓" : cat.icon}</button>
       <span class="row-main">
         <span class="row-title" style="${b.active === false ? "opacity:.5" : ""}">${esc(b.name)}</span>
-        <span class="row-sub">${esc(cat.name)} · due day ${b.dueDay}${b.active === false ? " · paused" : ""}</span>
+        <span class="row-sub">${esc(cat.name)} · due day ${b.dueDay}${b.autopay ? " · 🤖 autopay" : ""}${b.active === false ? " · paused" : ""}</span>
       </span>
       <span class="row-end">
         <span class="money ${paid ? "fixed" : ""}">${fmtMoney(b.amount)}</span>
@@ -76,8 +76,11 @@ function showBillEditModal(bill) {
       <input id="eb-day" class="input" inputmode="numeric" value="${bill.dueDay}" />
     </div>
     <select id="eb-category" class="select">${categoryOptionsHTML(allExpenseCategories(), bill.category)}</select>
-    <label style="display:flex;align-items:center;gap:10px;margin:4px 0 14px;font-size:0.92rem">
+    <label style="display:flex;align-items:center;gap:10px;margin:4px 0 8px;font-size:0.92rem">
       <input type="checkbox" id="eb-active" ${bill.active !== false ? "checked" : ""}/> Active (counts toward monthly total)
+    </label>
+    <label style="display:flex;align-items:center;gap:10px;margin:0 0 14px;font-size:0.92rem">
+      <input type="checkbox" id="eb-autopay" ${bill.autopay ? "checked" : ""}/> 🤖 Autopay — log it automatically on its due day
     </label>
     <button id="eb-save" class="btn primary block">Save changes</button>
     <button id="eb-delete" class="btn danger block">Delete bill</button>
@@ -87,13 +90,13 @@ function showBillEditModal(bill) {
       const amount = parseFloat($("#eb-amount", root).value);
       const dueDay = Math.min(31, Math.max(1, parseInt($("#eb-day", root).value, 10) || 1));
       if (!name || isNaN(amount) || amount <= 0) { toast("Enter a name and amount"); return; }
-      updateBill(bill.id, { name, amount, dueDay, category: $("#eb-category", root).value, active: $("#eb-active", root).checked });
+      updateBill(bill.id, { name, amount, dueDay, category: $("#eb-category", root).value, active: $("#eb-active", root).checked, autopay: $("#eb-autopay", root).checked });
       closeOverlay(root); render(); toast("Bill updated ✓");
     });
     $("#eb-delete", root).addEventListener("click", () => {
       if (confirm(`Delete "${bill.name}"? Past logged payments stay.`)) {
         deleteBill(bill.id);
-        closeOverlay(root); render(); toast("Bill deleted");
+        closeOverlay(root); render(); toastUndo("Bill deleted");
       }
     });
   });

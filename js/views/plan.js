@@ -43,6 +43,9 @@ function incomeCardHTML() {
     </div>
     <label class="field-label">A recent payday (enables payday reminders)</label>
     <input id="inc-anchor" class="input" type="date" value="${payAnchor || ""}" />
+    ${payAnchor && expectedIncome ? `<label class="row-sub" style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px">
+      <input type="checkbox" id="inc-autolog" ${state.income.autologPaycheck ? "checked" : ""}/>
+      Log my paycheck automatically each payday</label>` : ""}
     <div class="row-sub">${monthly > 0 ? `≈ ${fmtMoney(monthly)}/month.` : "Auto-suggested from logged income once you log some paychecks."}</div>
   </div>`;
 }
@@ -94,7 +97,7 @@ function budgetRowHTML(c) {
   const income = expectedMonthlyIncome();
   const entry = normalizeBudgetEntry(state.budgets[c.id]);
   const mode = entry ? entry.mode : "fixed";
-  const bs = budgetStatus(state.transactions, state.budgets, state.bills, c.id, getViewedMonth(), income);
+  const bs = catBudgetStatus(c.id, getViewedMonth());
   const billsFloor = activeBillsTotal(state.bills, c.id);
   const avg = categoryAverage(state.transactions, c.id, 3);
   const rec = RECOMMENDED_BUDGET_PCT[c.id];
@@ -122,8 +125,10 @@ function budgetRowHTML(c) {
     </div>
     ${billsFloor > 0 ? `<div class="row-sub info" style="margin-top:4px">includes ${fmtMoney(billsFloor)}/mo committed to bills${entry && bs.target === billsFloor && budgetTargetAmount(entry, income) < billsFloor ? " (floored)" : ""}</div>` : ""}
     ${bs.target ? `${barHTML(bs.pct, statusCls(bs.status))}
-      <div class="row-sub money">${fmtMoney(bs.spent)} / ${fmtMoney(bs.target)} this month${avg ? ` · avg ${fmtMoney(avg)}/mo` : ""}</div>`
+      <div class="row-sub money">${fmtMoney(bs.spent)} / ${fmtMoney(bs.target)} this month${bs.carry ? ` (${bs.carry > 0 ? "+" : "−"}${fmtMoney(Math.abs(bs.carry))} carried)` : ""}${avg ? ` · avg ${fmtMoney(avg)}/mo` : ""}</div>`
       : avg ? `<div class="row-sub money">avg ${fmtMoney(avg)}/mo${bs.spent ? ` · ${fmtMoney(bs.spent)} this month` : ""}</div>` : ""}
+    ${entry ? `<label class="row-sub" style="display:flex;align-items:center;gap:8px;margin-top:6px;cursor:pointer">
+      <input type="checkbox" data-rollover="${c.id}" ${entry.rollover ? "checked" : ""}/> Roll unspent money into next month</label>` : ""}
   </div>`;
 }
 
@@ -154,6 +159,7 @@ function wireBudgetsSegment() {
   });
   $("#inc-freq")?.addEventListener("change", (e) => { setIncomeSettings({ incomeFrequency: e.target.value }); render(); });
   $("#inc-anchor")?.addEventListener("change", (e) => { setIncomeSettings({ payAnchor: e.target.value || null }); render(); });
+  $("#inc-autolog")?.addEventListener("change", (e) => { setIncomeSettings({ autologPaycheck: e.target.checked }); });
 
   $("#leftover-log")?.addEventListener("click", () => {
     const goalId = $("#leftover-goal")?.value;
@@ -186,9 +192,21 @@ function wireBudgetsSegment() {
     setBudget(b.dataset.useRec, { mode: "percent", value: parseFloat(b.dataset.recPct) });
     render(); toast(`Set to ${b.dataset.recPct}% of income`);
   }));
+  $$("[data-rollover]").forEach(cb => cb.addEventListener("change", () => {
+    const cat = cb.dataset.rollover;
+    const entry = normalizeBudgetEntry(state.budgets[cat]);
+    if (!entry) return;
+    setBudget(cat, cb.checked
+      ? { ...entry, rollover: true, rolloverSince: entry.rolloverSince || currentMonthKey() }
+      : { ...entry, rollover: false, rolloverSince: null });
+    render();
+    toast(cb.checked ? "Rollover on — starts counting this month" : "Rollover off");
+  }));
   $$(".budget-input").forEach(inp => inp.addEventListener("change", () => {
     const v = parseFloat(inp.value);
-    setBudget(inp.dataset.bcat, isNaN(v) || v <= 0 ? null : { mode: inp.dataset.bmodeCur, value: v });
+    const prev = normalizeBudgetEntry(state.budgets[inp.dataset.bcat]) || {};
+    setBudget(inp.dataset.bcat, isNaN(v) || v <= 0 ? null
+      : { ...prev, mode: inp.dataset.bmodeCur, value: v });
     render();
   }));
 }

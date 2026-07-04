@@ -67,9 +67,8 @@ function heroCardHTML(key) {
 }
 
 function budgetAlertsHTML(key) {
-  const income = expectedMonthlyIncome();
   const hot = allExpenseCategories()
-    .map(c => ({ c, bs: budgetStatus(state.transactions, state.budgets, state.bills, c.id, key, income) }))
+    .map(c => ({ c, bs: catBudgetStatus(c.id, key) }))
     .filter(x => x.bs.hasBudget && (x.bs.status === "over" || x.bs.status === "warn"))
     .sort((a, b) => b.bs.pct - a.bs.pct)
     .slice(0, 4);
@@ -85,9 +84,10 @@ function budgetAlertsHTML(key) {
 }
 
 function netWorthCardHTML() {
-  const hasAnything = state.goals.length || state.invest.holdings.length || state.debts.length;
+  const hasAnything = state.goals.length || state.invest.holdings.length || state.debts.length || state.bank.accounts.length;
   if (!hasAnything) return "";
   const nw = currentNetWorth();
+  const cash = bankCashTotal();
   const series = state.invest.snapshots.slice(-30).map(s => s.netWorth);
   return `<button class="card" data-nav="invest">
     <div class="card-label">Net worth</div>
@@ -95,7 +95,16 @@ function netWorthCardHTML() {
       <div class="hero-amount money ${nw >= 0 ? "" : "neg"}" style="font-size:1.6rem">${fmtMoney(nw)}</div>
       ${series.length >= 2 ? sparkline(series) : ""}
     </div>
-    <div class="row-sub" style="margin-top:4px">savings + portfolio − debts</div>
+    <div class="row-sub" style="margin-top:4px">${cash ? `${fmtMoney(cash)} cash + ` : ""}savings + portfolio − debts</div>
+  </button>`;
+}
+
+function inboxNudgeHTML() {
+  const n = inboxTxns().length;
+  if (!n) return "";
+  return `<button class="nudge" data-nav="inbox" style="width:100%;text-align:left;cursor:pointer">
+    <div class="nudge-body">📥 <strong>${n}</strong> new transaction${n > 1 ? "s" : ""} to sort into categories</div>
+    <span class="btn small">Sort</span>
   </button>`;
 }
 
@@ -172,12 +181,48 @@ function goalTeaserHTML() {
   </button>`;
 }
 
+/* ------------------------------ monthly recap ------------------------------ */
+function maybeShowMonthlyRecap() {
+  if (!shouldShowRecap()) return;
+  const key = addMonths(currentMonthKey(), -1);
+  const t = monthTotals(state.transactions, state.bills, key);
+  const savingsRate = t.income > 0 ? Math.round((t.net / t.income) * 100) : null;
+  const spend = allExpenseCategories()
+    .map(c => ({ c, v: categorySpend(state.transactions, key, c.id) }))
+    .filter(x => x.v > 0).sort((a, b) => b.v - a.v).slice(0, 3);
+  const budgeted = allExpenseCategories()
+    .map(c => catBudgetStatus(c.id, key))
+    .filter(bs => bs.hasBudget && bs.target);
+  const met = budgeted.filter(bs => bs.status !== "over").length;
+  const autoLogs = state.ui.autoLog || [];
+  const green = t.net > 0 && (savingsRate == null || savingsRate >= RECOMMENDED_SAVINGS_PCT);
+
+  sheet(`
+    <h2>${fmtMonth(key)} recap</h2>
+    <div class="hero-amount money ${t.net >= 0 ? "pos" : "neg"}">${fmtMoneySigned(t.net)}</div>
+    <div class="row-sub" style="margin-bottom:12px">net cash flow${savingsRate != null ? ` · ${savingsRate}% savings rate` : ""}</div>
+    ${spend.length ? `<div class="card-label">Top spending</div>
+      ${spend.map(x => `<div class="vol-row"><span class="vol-label">${x.c.icon} ${esc(x.c.name)}</span>
+        <span class="vol-num money">${fmtMoney(x.v)}</span></div>`).join("")}` : ""}
+    ${budgeted.length ? `<div class="card-label" style="margin-top:10px">Budgets</div>
+      <p class="row-sub">${met}/${budgeted.length} stayed under target${met === budgeted.length ? " — clean sweep 🏆" : ""}</p>` : ""}
+    ${autoLogs.length ? `<div class="card-label" style="margin-top:10px">Done for you</div>
+      ${autoLogs.slice(-8).map(a => `<p class="row-sub">🤖 ${esc(a.label)}</p>`).join("")}` : ""}
+    <button class="btn primary block" style="margin-top:16px" data-recap-close>On to ${fmtMonth(currentMonthKey())} →</button>
+  `, (root) => {
+    if (green) launchConfetti();
+    markRecapShown();
+    $("[data-recap-close]", root).addEventListener("click", () => closeOverlay(root));
+  });
+}
+
 /* ------------------------------ view -------------------------------------- */
 function renderHome() {
   const key = getViewedMonth();
   const recent = txnsInMonth(state.transactions, key).slice().sort((a, b) => b.date < a.date ? -1 : 1).slice(0, 5);
   return `
     ${pageHeader("Keel", { stepper: true })}
+    ${inboxNudgeHTML()}
     ${backupNudgeHTML()}
     ${billNudgesHTML()}
     ${paydayNudgeHTML()}
@@ -187,6 +232,7 @@ function renderHome() {
     ${spendingDonutHTML(key)}
     ${cashflowTrendHTML(key)}
     ${categoryTrendHTML(key)}
+    <button class="card" data-nav="year"><div class="card-label">📆 Year in Review — 12-month totals & trends</div></button>
     ${goalTeaserHTML()}
     <div class="card">
       <div class="card-label">Recent activity</div>
@@ -198,14 +244,15 @@ function renderHome() {
   `;
 }
 function wireHome() {
+  maybeAutoSyncBank();
   $$("[data-pay-bill]").forEach(b => b.addEventListener("click", () => {
     toggleBillPaid(b.dataset.payBill, currentMonthKey());
-    toast("Bill marked paid ✓");
+    buzz(); toast("Bill marked paid ✓");
     render();
   }));
   $$("[data-log-payday]").forEach(b => b.addEventListener("click", () => {
     addTransaction({ type: "income", amount: state.income.expectedIncome, category: "paycheck", note: "Paycheck", date: b.dataset.logPayday });
-    toast("Paycheck logged ✓");
+    buzz(); toast("Paycheck logged ✓");
     render();
   }));
   $("#trend-cat")?.addEventListener("change", (e) => { trendCategory = e.target.value; render(); });
