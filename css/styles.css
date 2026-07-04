@@ -397,6 +397,74 @@ details.card summary::after { content: "›"; float: right; color: var(--text-3)
 details.card[open] summary::after { transform: rotate(90deg); }
 .divider { height: 1px; background: var(--line); margin: 14px 0; border: none; }
 
+/* ------------------------------ inbox -------------------------------------- */
+.inbox-card { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; position: relative; z-index: 5; }
+.inbox-card.dragging { cursor: grabbing; transition: none; box-shadow: 0 18px 44px rgba(0,0,0,0.55); border-color: var(--accent); }
+.inbox-chips .chip { padding: 11px 14px; font-size: 0.88rem; }
+.chip.drop-target { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); transform: scale(1.08); }
+
+/* ------------------------------ toast action / selection ------------------- */
+.toast-action {
+  background: none; border: none; color: var(--accent); font-weight: 800;
+  font-size: 0.88rem; margin-left: 14px; cursor: pointer; pointer-events: auto;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+#toast.show { pointer-events: auto; }
+.row-selected .row-title { color: var(--accent); }
+
+/* ------------------------------ PIN keypad --------------------------------- */
+.lock-screen {
+  position: fixed; inset: 0; z-index: 400; background: var(--bg-0);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+  padding-bottom: 8vh;
+}
+.pin-dots { display: flex; gap: 14px; height: 16px; }
+.pin-dots i { width: 14px; height: 14px; border-radius: 50%; background: var(--bg-3); border: 1px solid var(--line-strong); }
+.pin-dots i.on { background: var(--accent); border-color: var(--accent); }
+.pin-dots.shake { animation: pin-shake 0.35s ease; }
+@keyframes pin-shake { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+.keypad { display: grid; grid-template-columns: repeat(3, 74px); gap: 14px; }
+.keypad button {
+  height: 74px; border-radius: 50%; font-size: 1.5rem; font-weight: 700;
+  background: var(--bg-1); border: 1px solid var(--line); color: var(--text-1); cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.keypad button:active { background: var(--bg-3); }
+.keypad button.key-aux { background: none; border: none; font-size: 1rem; color: var(--text-2); }
+
+/* ------------------------------ light theme -------------------------------- */
+:root[data-theme="light"] {
+  --bg-0: #F4F6FA;
+  --bg-1: #FFFFFF;
+  --bg-2: #EDF1F7;
+  --bg-3: #E1E7F0;
+  --line: #D8DFEA;
+  --line-strong: #C2CCDC;
+  --text-1: #14202F;
+  --text-2: #51617A;
+  --text-3: #8695AC;
+  --accent: #0FA47C;
+  --accent-soft: rgba(15, 164, 124, 0.12);
+  --accent-ink: #FFFFFF;
+  --pos: #0F9D62;
+  --neg: #D93A52;
+  --warn: #B87D00;
+  --info: #1D6FD6;
+  --fixed: #5F7392;
+  --pos-soft: rgba(15, 157, 98, 0.1);
+  --neg-soft: rgba(217, 58, 82, 0.1);
+  --warn-soft: rgba(184, 125, 0, 0.1);
+  --info-soft: rgba(29, 111, 214, 0.1);
+  --chart-1: #0FA47C; --chart-2: #1D6FD6; --chart-3: #7C4DD8;
+  --chart-4: #B87D00; --chart-5: #D93A52; --chart-6: #5F7392;
+  --shadow-sheet: 0 -12px 40px rgba(30, 42, 60, 0.18);
+}
+:root[data-theme="light"] #tabbar { background: rgba(255, 255, 255, 0.92); }
+:root[data-theme="light"] .hero-card { background: linear-gradient(160deg, #FFFFFF, #F2F6FB 65%); }
+:root[data-theme="light"] #fab { border-color: var(--bg-0); box-shadow: 0 6px 22px rgba(15, 164, 124, 0.35); }
+:root[data-theme="light"] .overlay-backdrop { background: rgba(30, 42, 60, 0.35); }
+:root[data-theme="light"] #toast { background: #22304A; color: #fff; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
 }

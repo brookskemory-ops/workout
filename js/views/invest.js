@@ -331,7 +331,7 @@ function showHoldingEditModal(h) {
     $("#eh-delete", root).addEventListener("click", () => {
       if (confirm(`Delete ${h.symbol.toUpperCase()}? This only removes it from tracking.`)) {
         deleteHolding(h.id);
-        closeOverlay(root); render(); toast("Holding deleted");
+        closeOverlay(root); render(); toastUndo("Holding deleted");
       }
     });
   });

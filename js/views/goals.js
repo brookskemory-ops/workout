@@ -164,6 +164,7 @@ function wireGoalsSegment() {
       render(); toast(`${g.name} spent & reset for next cycle`);
     } else {
       updateGoal(g.id, { achieved: true });
+      buzz(30);
       launchConfetti();
       render(); toast(`🏆 ${g.name} reached!`);
     }
@@ -233,7 +234,7 @@ function showGoalEditModal(g) {
     $("#eg-delete", root).addEventListener("click", () => {
       if (confirm(`Delete "${g.name}" and its contribution history?`)) {
         deleteGoal(g.id);
-        closeOverlay(root); render(); toast("Goal deleted");
+        closeOverlay(root); render(); toastUndo("Goal deleted");
       }
     });
   });
@@ -262,7 +263,7 @@ function showDebtEditModal(d) {
     $("#ed-delete", root).addEventListener("click", () => {
       if (confirm(`Delete "${d.name}"?`)) {
         deleteDebt(d.id);
-        closeOverlay(root); render(); toast("Debt deleted");
+        closeOverlay(root); render(); toastUndo("Debt deleted");
       }
     });
   });

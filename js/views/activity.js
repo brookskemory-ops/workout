@@ -6,6 +6,8 @@
 let actSearch = "";
 let actType = "all";       // all | expense | income
 let actCategory = "all";
+let actSelectMode = false;
+const actSelected = new Set();
 
 function activityFilteredTxns(key) {
   let txns = txnsInMonth(state.transactions, key);
@@ -39,9 +41,36 @@ function activityListHTML(key) {
   for (const [day, list] of byDay) {
     const dayNet = list.reduce((a, t) => a + (t.type === "income" ? t.amount : -t.amount), 0);
     html += `<div class="day-head"><span>${fmtDay(day)}</span><span class="money">${fmtMoneySigned(dayNet)}</span></div>`;
-    html += list.map(t => txnRowHTML(t, true)).join("");
+    html += list.map(t => actSelectMode ? selectableTxnRowHTML(t) : txnRowHTML(t, true)).join("");
   }
   return html;
+}
+
+function selectableTxnRowHTML(t) {
+  const cat = catForTxn(t);
+  const on = actSelected.has(t.id);
+  return `<button class="row txn-row ${on ? "row-selected" : ""}" data-select-txn="${t.id}">
+    <span class="row-tile" style="${on ? "background:var(--accent-soft);border-color:var(--accent)" : ""}">${on ? "✓" : cat.icon}</span>
+    <span class="row-main">
+      <span class="row-title">${esc(t.note || cat.name)}</span>
+      <span class="row-sub">${esc(cat.name)}</span>
+    </span>
+    <span class="row-end"><span class="money">${t.type === "income" ? "+" : "−"}${fmtMoney(t.amount)}</span></span>
+  </button>`;
+}
+
+function bulkBarHTML() {
+  if (!actSelectMode) return "";
+  return `<div class="card" id="bulk-bar">
+    <div class="card-label">${actSelected.size} selected</div>
+    <div class="input-pair">
+      <select id="bulk-category" class="select" style="margin-bottom:0">
+        <option value="">Set category…</option>
+        ${categoryOptionsHTML(allExpenseCategories())}
+      </select>
+      <button id="bulk-delete" class="btn danger" ${actSelected.size ? "" : "disabled"}>Delete</button>
+    </div>
+  </div>`;
 }
 
 function renderActivity() {
@@ -50,8 +79,13 @@ function renderActivity() {
   const usedCats = [...new Set(txnsInMonth(state.transactions, key).map(x => x.category))]
     .map(id => allExpenseCategories().find(c => c.id === id) || allIncomeCategories().find(c => c.id === id))
     .filter(Boolean);
+  const inboxCount = inboxTxns().length;
   return `
     ${pageHeader("Activity", { stepper: true })}
+    ${inboxCount ? `<button class="nudge" data-nav="inbox" style="width:100%;text-align:left;cursor:pointer">
+      <div class="nudge-body">📥 <strong>${inboxCount}</strong> transaction${inboxCount > 1 ? "s" : ""} waiting to be sorted</div>
+      <span class="btn small">Sort now</span>
+    </button>` : ""}
     <div class="card">
       <div class="hero-meta" style="margin:0 0 12px">
         <span class="money pos">＋ ${fmtMoney(t.income)}</span>
@@ -67,7 +101,12 @@ function renderActivity() {
         <option value="all">All categories</option>
         ${categoryOptionsHTML(usedCats, actCategory)}
       </select>` : ""}
+      <div class="chips">
+        <button class="chip" id="act-import">⇪ Import CSV</button>
+        <button class="chip ${actSelectMode ? "sel" : ""}" id="act-select">${actSelectMode ? "✕ Done selecting" : "☑ Select"}</button>
+      </div>
     </div>
+    ${bulkBarHTML()}
     <div id="txn-list" class="card">${activityListHTML(key)}</div>
   `;
 }
@@ -87,12 +126,36 @@ function wireActivity() {
     actType = b.dataset.actType; render();
   }));
   $("#act-category")?.addEventListener("change", (e) => { actCategory = e.target.value; render(); });
+  $("#act-import")?.addEventListener("click", openImportWizard);
+  $("#act-select")?.addEventListener("click", () => {
+    actSelectMode = !actSelectMode;
+    actSelected.clear();
+    render();
+  });
+  $("#bulk-category")?.addEventListener("change", (e) => {
+    if (!e.target.value || !actSelected.size) return;
+    setTransactionsCategory([...actSelected], e.target.value);
+    actSelected.clear(); actSelectMode = false;
+    render(); toast("Categories updated ✓");
+  });
+  $("#bulk-delete")?.addEventListener("click", () => {
+    if (!actSelected.size) return;
+    if (!confirm(`Delete ${actSelected.size} transaction${actSelected.size > 1 ? "s" : ""}?`)) return;
+    deleteTransactions([...actSelected]);
+    actSelected.clear(); actSelectMode = false;
+    render(); toastUndo("Transactions deleted");
+  });
   wireTxnRows();
 }
 function wireTxnRows() {
   $$("[data-edit-txn]").forEach(b => b.addEventListener("click", () => {
     const t = state.transactions.find(x => x.id === b.dataset.editTxn);
     if (t) showTxnEditModal(t);
+  }));
+  $$("[data-select-txn]").forEach(b => b.addEventListener("click", () => {
+    const id = b.dataset.selectTxn;
+    actSelected.has(id) ? actSelected.delete(id) : actSelected.add(id);
+    render(); // scroll-preserving
   }));
 }
 
@@ -130,7 +193,7 @@ function showTxnEditModal(t) {
     $("#et-delete", root)?.addEventListener("click", () => {
       if (confirm("Delete this transaction?")) {
         deleteTransaction(t.id);
-        closeOverlay(root); render(); toast("Deleted");
+        closeOverlay(root); render(); toastUndo("Transaction deleted");
       }
     });
   });

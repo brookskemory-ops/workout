@@ -1,6 +1,6 @@
 /* Keel service worker — offline-first caching.
    Bump CACHE on every release to force clients onto the new version. */
-const CACHE = "keel-v1";
+const CACHE = "keel-v2";
 const ASSETS = [
   "./",
   "./index.html",
@@ -9,15 +9,20 @@ const ASSETS = [
   "./js/state.js",
   "./js/ui.js",
   "./js/charts.js",
+  "./js/bank.js",
+  "./js/lock.js",
   "./js/views/quicklog.js",
   "./js/views/home.js",
   "./js/views/activity.js",
+  "./js/views/importer.js",
+  "./js/views/inbox.js",
   "./js/views/plan.js",
   "./js/views/bills.js",
   "./js/views/goals.js",
   "./js/views/invest.js",
   "./js/views/settings.js",
   "./js/views/onboarding.js",
+  "./js/views/year.js",
   "./js/app.js",
   "./manifest.webmanifest",
   "./icons/icon-192.png",

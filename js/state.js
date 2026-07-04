@@ -43,10 +43,20 @@ const DEFAULT_STATE = {
     lastAutoRefreshAt: null,
     snapshots: [],       // [{date:'YYYY-MM-DD', total, netWorth}] max 1/day, capped
   },
+  rules: [],             // [{id, match, categoryId, enabled}] auto-categorization
+  bank: {
+    accessUrl: null,     // SimpleFIN access URL (device-only; contains credentials)
+    accounts: [],        // [{id, name, org, balance, balanceDate}]
+    lastSyncAt: null,
+    autoSync: true,
+  },
   ui: {
     lastExpenseCategory: null,
     lastIncomeCategory: null,
     categoryUseCounts: {},
+    lastRecapMonth: null,
+    theme: "dark",       // 'system' | 'dark' | 'light'
+    autoLog: [],         // [{date, label}] queued for the monthly recap
   },
   createdAt: null,
   migratedFrom: null,
@@ -186,7 +196,10 @@ function allIncomeCategories() {
 }
 function expenseCatById(id) { return allExpenseCategories().find(c => c.id === id) || { id, name: id, icon: "📦" }; }
 function incomeCatById(id) { return allIncomeCategories().find(c => c.id === id) || { id, name: id, icon: "➕" }; }
-function catForTxn(t) { return t.type === "income" ? incomeCatById(t.category) : expenseCatById(t.category); }
+function catForTxn(t) {
+  if (!t.category) return { id: null, name: "Uncategorized", icon: "📥" };
+  return t.type === "income" ? incomeCatById(t.category) : expenseCatById(t.category);
+}
 
 // Average logged income over the last 3 months with any activity.
 function suggestedMonthlyFromHistory() {
@@ -207,12 +220,47 @@ function currentSavingsCapacity() {
 function billPaidInMonth(billId, key) {
   return state.transactions.some(t => t.fixedBillId === billId && monthKey(t.date) === key);
 }
+// budgetStatus with envelope rollover applied: carried surplus/deficit from
+// prior months adjusts this month's target. The one status fn views use.
+function catBudgetStatus(categoryId, key) {
+  const income = expectedMonthlyIncome();
+  const bs = budgetStatus(state.transactions, state.budgets, state.bills, categoryId, key, income);
+  const carry = rolloverCarry(state.transactions, state.budgets, state.bills, categoryId, key, income);
+  if (!carry || !bs.target) return { ...bs, carry: 0 };
+  const target = Math.max(0, bs.target + carry);
+  const pct = target > 0 ? Math.round((bs.spent / target) * 100) : 100;
+  return { ...bs, target, pct, carry, status: pct >= 100 ? "over" : pct >= 80 ? "warn" : "good" };
+}
 function goalCurrent(goalId) {
   return state.contributions.filter(c => c.goalId === goalId).reduce((a, c) => a + c.amount, 0);
 }
 function currentNetWorth() {
   const { total } = portfolioBreakdown(state.invest.holdings, state.invest.priceCache);
-  return netWorthTotal(goalsBalanceTotal(state.goals, state.contributions), total, debtsTotal(state.debts));
+  return netWorthTotal(goalsBalanceTotal(state.goals, state.contributions), total, debtsTotal(state.debts))
+    + bankCashTotal();
+}
+
+/* ------------------------------ undo -------------------------------------- */
+// One-slot undo buffer for deletes. Each delete registers a restore closure;
+// the toast's Undo button calls undoLast().
+let lastUndo = null;
+function registerUndo(restoreFn) { lastUndo = restoreFn; }
+function undoLast() {
+  if (!lastUndo) return false;
+  const fn = lastUndo;
+  lastUndo = null;
+  mutate(s => fn(s));
+  return true;
+}
+// Removes matching items from an array field, remembering them for undo.
+function removeWithUndo(arrayField, predicate) {
+  mutate(s => {
+    const kept = [], removed = [];
+    for (const item of s[arrayField]) (predicate(item) ? removed : kept).push(item);
+    if (!removed.length) return;
+    s[arrayField] = kept;
+    registerUndo(st => { st[arrayField] = st[arrayField].concat(removed); });
+  });
 }
 
 /* ------------------------------ transactions ------------------------------ */
@@ -236,7 +284,17 @@ function updateTransaction(id, patch) {
   });
 }
 function deleteTransaction(id) {
-  mutate(s => { s.transactions = s.transactions.filter(t => t.id !== id); });
+  removeWithUndo("transactions", t => t.id === id);
+}
+function deleteTransactions(ids) {
+  const set = new Set(ids);
+  removeWithUndo("transactions", t => set.has(t.id));
+}
+function setTransactionsCategory(ids, categoryId) {
+  const set = new Set(ids);
+  mutate(s => s.transactions.forEach(t => {
+    if (set.has(t.id)) { t.category = categoryId; t.inbox = false; t.suggestedCategory = undefined; }
+  }));
 }
 
 /* ------------------------------ bills ------------------------------------- */
@@ -247,7 +305,7 @@ function updateBill(id, patch) {
   mutate(s => { const b = s.bills.find(x => x.id === id); if (b) Object.assign(b, patch); });
 }
 function deleteBill(id) {
-  mutate(s => { s.bills = s.bills.filter(b => b.id !== id); });
+  removeWithUndo("bills", b => b.id === id);
 }
 // Toggles the bill's paid transaction for the VIEWED month, stamping the
 // bill's due day (clamped to that month) — not "now".
@@ -304,8 +362,15 @@ function updateGoal(id, patch) {
 }
 function deleteGoal(id) {
   mutate(s => {
+    const goal = s.goals.find(g => g.id === id);
+    if (!goal) return;
+    const contribs = s.contributions.filter(c => c.goalId === id);
     s.goals = s.goals.filter(g => g.id !== id);
     s.contributions = s.contributions.filter(c => c.goalId !== id);
+    registerUndo(st => {
+      st.goals.push(goal);
+      st.contributions = st.contributions.concat(contribs);
+    });
   });
 }
 function addContribution(goalId, amount) {
@@ -324,7 +389,7 @@ function updateDebt(id, patch) {
   mutate(s => { const d = s.debts.find(x => x.id === id); if (d) Object.assign(d, patch); });
 }
 function deleteDebt(id) {
-  mutate(s => { s.debts = s.debts.filter(d => d.id !== id); });
+  removeWithUndo("debts", d => d.id === id);
 }
 function setDebtOptions(patch) {
   mutate(s => Object.assign(s, patch)); // debtStrategy / debtExtraPayment live at top level
@@ -344,7 +409,12 @@ function updateHolding(id, patch) {
   mutate(s => { const h = s.invest.holdings.find(x => x.id === id); if (h) Object.assign(h, patch); });
 }
 function deleteHolding(id) {
-  mutate(s => { s.invest.holdings = s.invest.holdings.filter(h => h.id !== id); });
+  mutate(s => {
+    const h = s.invest.holdings.find(x => x.id === id);
+    if (!h) return;
+    s.invest.holdings = s.invest.holdings.filter(x => x.id !== id);
+    registerUndo(st => st.invest.holdings.push(h));
+  });
 }
 function cachePrices(entries) { // entries: {priceKey: {price, at}}
   mutate(s => Object.assign(s.invest.priceCache, entries));
@@ -360,6 +430,138 @@ function recordPortfolioSnapshot() {
     else s.invest.snapshots.push({ date, total, netWorth: nw });
     if (s.invest.snapshots.length > 750) s.invest.snapshots.splice(0, s.invest.snapshots.length - 750);
   });
+}
+
+/* ------------------------------ automations -------------------------------- */
+// Boot-time sweep: auto-log autopay bills whose due day has passed this
+// month, and this cycle's paycheck when enabled. Every action is queued for
+// the monthly recap so nothing happens silently.
+function runAutomations() {
+  const key = currentMonthKey();
+  const todayDay = +todayKey().slice(8, 10);
+  let acted = false;
+
+  for (const bill of state.bills) {
+    if (!bill.autopay || bill.active === false) continue;
+    if (bill.dueDay > todayDay || billPaidInMonth(bill.id, key)) continue;
+    toggleBillPaid(bill.id, key);
+    mutate(s => s.ui.autoLog.push({ date: todayKey(), label: `Auto-paid ${bill.name} (${fmtAutoAmount(bill.amount)})` }));
+    acted = true;
+  }
+
+  const { payAnchor, incomeFrequency, expectedIncome, autologPaycheck } = state.income;
+  if (autologPaycheck && payAnchor && expectedIncome) {
+    const recent = nextPaydays(payAnchor, incomeFrequency, addDaysKey(todayKey(), -3), 2)
+      .filter(p => p <= todayKey());
+    for (const payday of recent) {
+      const already = state.transactions.some(t =>
+        t.type === "income" && t.category === "paycheck" && Math.abs(daysBetween(t.date, payday)) <= 3);
+      if (already) continue;
+      mutate(s => {
+        s.transactions.push({
+          id: uid(), date: payday, amount: expectedIncome, category: "paycheck",
+          note: "Paycheck (auto)", type: "income", source: "income",
+        });
+        s.ui.autoLog.push({ date: todayKey(), label: `Auto-logged paycheck (${fmtAutoAmount(expectedIncome)})` });
+      });
+      acted = true;
+    }
+  }
+  return acted;
+}
+function fmtAutoAmount(n) {
+  return `${state.settings.currency || "$"}${Math.round(n).toLocaleString()}`;
+}
+// The recap fires on the first open of a new month, if last month had any
+// activity worth recapping.
+function shouldShowRecap() {
+  const key = currentMonthKey();
+  if (state.ui.lastRecapMonth === key) return false;
+  const prev = addMonths(key, -1);
+  const hadActivity = txnsInMonth(state.transactions, prev).length > 0;
+  if (!hadActivity || !state.settings.onboarded) {
+    mutate(s => { s.ui.lastRecapMonth = key; }); // don't nag a fresh/idle month
+    return false;
+  }
+  return true;
+}
+function markRecapShown() {
+  mutate(s => { s.ui.lastRecapMonth = currentMonthKey(); s.ui.autoLog = []; });
+}
+
+/* ------------------------------ rules -------------------------------------- */
+function addRule(match, categoryId) {
+  mutate(s => {
+    // replace an existing rule with the same match text instead of stacking
+    s.rules = s.rules.filter(r => r.match.toLowerCase() !== match.toLowerCase());
+    s.rules.push({ id: uid(), match, categoryId, enabled: true });
+  });
+}
+function updateRule(id, patch) {
+  mutate(s => { const r = s.rules.find(x => x.id === id); if (r) Object.assign(r, patch); });
+}
+function deleteRule(id) {
+  removeWithUndo("rules", r => r.id === id);
+}
+
+/* ------------------------------ import / inbox ----------------------------- */
+function existingImportKeys() {
+  return state.transactions.filter(t => t.importKey).map(t => t.importKey);
+}
+function existingBankIds() {
+  return state.transactions.filter(t => t.bankId).map(t => t.bankId);
+}
+// Adds mapped transactions (from CSV or bank sync) into the inbox.
+function importTransactions(txns) {
+  mutate(s => {
+    for (const t of txns) {
+      s.transactions.push({
+        id: uid(), note: "", ...t,
+        category: null, // set during inbox triage; suggestedCategory pre-highlights
+        source: t.type === "income" ? "income" : "variable",
+        inbox: true,
+      });
+    }
+  });
+}
+function inboxTxns() {
+  return state.transactions.filter(t => t.inbox)
+    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+}
+function categorizeInboxTxn(id, categoryId, createRuleFromNote) {
+  mutate(s => {
+    const t = s.transactions.find(x => x.id === id);
+    if (!t) return;
+    t.category = categoryId;
+    t.inbox = false;
+    delete t.suggestedCategory;
+    s.ui.categoryUseCounts[categoryId] = (s.ui.categoryUseCounts[categoryId] || 0) + 1;
+  });
+  if (createRuleFromNote) addRule(createRuleFromNote, categoryId);
+}
+function flipInboxTxnType(id) {
+  mutate(s => {
+    const t = s.transactions.find(x => x.id === id);
+    if (!t) return;
+    t.type = t.type === "income" ? "expense" : "income";
+    t.source = t.type === "income" ? "income" : "variable";
+    delete t.suggestedCategory;
+  });
+}
+
+/* ------------------------------ bank sync ---------------------------------- */
+function setBankAccess(accessUrl) {
+  mutate(s => { s.bank.accessUrl = accessUrl; s.bank.lastSyncAt = null; });
+}
+function disconnectBank() {
+  mutate(s => { s.bank = { accessUrl: null, accounts: [], lastSyncAt: null, autoSync: true }; });
+}
+function applyBankSync({ txns, accounts }) {
+  mutate(s => { s.bank.accounts = accounts; s.bank.lastSyncAt = new Date().toISOString(); });
+  if (txns.length) importTransactions(txns);
+}
+function bankCashTotal() {
+  return state.bank.accounts.reduce((a, x) => a + (x.balance || 0), 0);
 }
 
 if (typeof module !== "undefined") {

@@ -30,14 +30,31 @@ back up via JSON. Rules of thumb, never financial advice.
 - First-run onboarding (currency → income/payday → starter budgets)
 - One-time migration from `monsterMode.v1` (non-destructive)
 
+## ✅ Shipped — Keel v2
+- **Bank sync** via SimpleFIN Bridge — zero-server, browser-CORS verified;
+  setup-token claim or pasted access URL; 6-hour auto-sync; balances in net
+  worth; pending transactions skipped; per-transaction dedupe
+- **Inbox** triage for imported/synced transactions — tap or drag-to-chip,
+  suggested categories, implicit rule creation
+- **CSV import wizard** — column auto-detection (incl. split debit/credit),
+  date-format guessing, EU/US amount parsing, duplicate skipping
+- **Auto-categorization rules** (substring match), managed in Settings,
+  learned from Inbox decisions
+- **Undo** on every delete (transactions incl. bulk, bills, goals, debts,
+  holdings, rules)
+- **Bulk edit** in Activity (multi-select → recategorize / delete)
+- **Autopay bills** + **paycheck auto-log** boot sweeps, queued into a
+  **monthly recap** sheet (confetti on green months)
+- **Envelope rollover budgets** (carry surplus & deficit, 24-month window)
+- **PIN lock** (WebCrypto-hashed, background relock, cooldown after 5 fails)
+- **Light theme** + system-follow, **haptics**, **PWA shortcuts**
+  (long-press icon → Log expense/income), **Year in Review** report
+
 ## ⏳ Ideas for future phases
-- Recurring income beyond paycheck (rental, side gigs) and bill
-  auto-logging on due day (opt-in)
-- Category rules ("notes containing 'uber' → Transport")
+- Recurring income beyond paycheck (rental, side gigs)
 - Multi-currency / currency conversion for holdings
-- Budget rollover ("envelope" mode: unspent carries to next month)
 - Custom category icons & colors
-- Import CSV (bank statement mapping)
-- Reports: year view, income vs expenses stacked chart, tax-time summary
-- Invest: more coins via CoinGecko search, dividend tracking, benchmarks
+- Invest: more coins via CoinGecko search, dividend tracking, benchmarks,
+  FIRE/compound-growth projector
+- Smart insights ("dining is 40% above your average this month")
 - Split the old fitness app into its own repo/PWA reading `monsterMode.v1`
