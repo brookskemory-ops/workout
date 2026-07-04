@@ -1,16 +1,16 @@
 {
-  "name": "Monster Mode — Fitness Dashboard",
-  "short_name": "Monster Mode",
-  "description": "Log food, track workouts, and auto-generate balanced routines with progressive overload.",
-  "start_url": "./index.html",
+  "name": "Keel — Personal Finance",
+  "short_name": "Keel",
+  "description": "Private, offline-first personal finance: spending, budgets, goals, and investments — all on your device.",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0b1117",
-  "theme_color": "#0f1720",
+  "background_color": "#090D13",
+  "theme_color": "#090D13",
   "icons": [
-    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "./icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }
