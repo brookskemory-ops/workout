@@ -12,9 +12,14 @@ name: Deploy to GitHub Pages
 #   the files directly and auto-updates on every push. If you use that, you can
 #   ignore this workflow entirely.
 #
-# Manual-only trigger so it never auto-fails before Pages is enabled.
+# Runs on pushes to the deployable branches (the github-pages environment's
+# branch policy governs which of these may actually deploy), plus manual runs.
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+      - claude/fitness-dashboard-workout-library-467mrd
 
 permissions:
   contents: read
