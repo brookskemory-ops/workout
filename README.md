@@ -1,199 +1,66 @@
-# 🦍 Monster Mode — Personal Dashboard
+# ⚓ Keel — Personal Finance
 
-A private, installable phone dashboard with two modes, chosen every time you open the
-app: **Fitness** (log food, track workouts, auto-generate balanced routines with
-progressive-overload coaching) and **Finance** (track every expense, fixed bills,
-income, and budgets). Built as an offline-first PWA (Progressive Web App) — no account,
-no server, all your data stays on your phone.
+**Money on an even keel.** A private, installable phone app for tracking spending,
+planning budgets, hitting savings goals, and growing an investment portfolio —
+built as an offline-first PWA. No account, no server, no bank connection:
+everything lives on your device.
 
-Fitness training principles draw on **Jeff Nippard's** evidence-based hypertrophy work
-(10–20 hard sets per muscle per week, train each muscle 2–3×, emphasize the stretched
-position, leave 1–3 reps in reserve, progressive overload) and **TNF / Joel Twinem's**
-natural-lifting philosophy (keep it simple, stable and loadable; clean exercise order;
-low systemic fatigue; run the plan for months with small tweaks).
+**Live app:** https://brookskemory-ops.github.io/workout/
 
----
-
-## 🚀 One-time: turn on GitHub Pages
-
-GitHub won't let an automated token flip Pages on for you, so this is a single
-manual click (then it stays on forever):
-
-1. Go to the repo on GitHub → **Settings** → **Pages**.
-2. Under **Build and deployment → Source**, choose **Deploy from a branch**.
-3. Set the branch to **`main`** and the folder to **`/ (root)`**, then **Save**.
-4. Wait ~1 minute. Your app is now live at
-   **`https://brookskemory-ops.github.io/workout/`** and auto-updates whenever a
-   roadmap phase merges into `main`.
-
-*(Prefer an Actions-based deploy instead? Set Source to "GitHub Actions" and run the
-included `Deploy to GitHub Pages` workflow from the Actions tab.)*
-
-## 📲 Add it to your phone's home screen
-
-Once it's live at `https://brookskemory-ops.github.io/workout/`:
+## 📲 Install on your phone
 
 ### iPhone (Safari)
-1. Open the link in **Safari**.
-2. Tap the **Share** button (square with an arrow).
-3. Scroll down and tap **Add to Home Screen**.
-4. Tap **Add**. The 🦍 icon now lives on your home screen and opens full-screen like an app.
+1. Open the link in **Safari** → tap **Share** → **Add to Home Screen** → **Add**.
 
 ### Android (Chrome)
-1. Open the link in **Chrome**.
-2. Tap the **⋮** menu (top right).
-3. Tap **Install app** / **Add to Home screen** → **Install**.
+1. Open the link in **Chrome** → **⋮** menu → **Install app**.
 
-Because it's a PWA with a service worker, it works **offline** after the first load.
+Works offline after the first load. Updates arrive automatically on the next
+online open.
 
----
+## What's inside
 
-## 🚦 Choosing a mode
+| Surface | What it does |
+|---|---|
+| **Home** | The month at a glance: net cash-flow hero, overdue / due-soon bill nudges with one-tap "mark paid", payday reminders with one-tap paycheck logging, net-worth card with trend, a spending donut, a 6-month cash-flow chart, per-category trends, goal & portfolio teasers, recent activity. Step back through any past month. |
+| **Activity** | Every transaction, grouped by day, for any month — with search, type and category filters, and full **editing** (amount, category, note, date) by tapping any row. |
+| **➕ (center button)** | Quick-log from anywhere: big amount pad, day-to-day categories first, remembers your last-used category, and shows the category's remaining budget live as you pick. |
+| **Plan → Budgets** | Expected income (any pay frequency, with a payday anchor for reminders) and per-category budgets — fixed $ or % of income, with commonly-cited guideline ranges and one-tap "Use X%". **A budget is the total plan for its category, bills included**, so a rent bill and a rent budget never double-count. The overview shows exactly what's left each month and grades it against the ~20% savings guideline. |
+| **Plan → Bills** | Recurring bills set up once; check them off monthly. Marking paid logs a real transaction dated the bill's **due day in the month you're viewing**. |
+| **Plan → Goals** | Savings goals and sinking funds with pacing math ("need $X/mo to hit your date"), plus a debt payoff planner (avalanche/snowball, extra-payment cascade, debt-free date, total interest). |
+| **Invest** | A 6-question risk quiz → Conservative / Balanced / Growth / Aggressive model portfolio across US stocks, international stocks, bonds, cash, and a small crypto slice (capped ~10%), with example low-cost index ETFs and a ~70/30 BTC/ETH split. The monthly amount auto-derives from your budget leftover. Track holdings with live prices — crypto via CoinGecko (no key), stocks via a free [finnhub.io](https://finnhub.io) key — plus gain/loss, an actual-vs-target drift view, and portfolio value over time. Safety gates: money needed within ~3 years caps the plan at Conservative; no emergency fund caps it at Balanced. |
+| **Settings (⚙)** | Currency, custom categories, and the data-safety suite: **JSON backup/restore, CSV transaction export, a rolling week of automatic on-device snapshots**, and backup reminders. |
 
-Every time you open the app, you land on a picker: **Fitness** or **Finance**. Pick one
-and you get that mode's dashboard and bottom tab bar for the rest of the session. A
-**🔀 Switch app** button (in Fitness → Setup, or Finance → Budgets) brings the picker
-back anytime without needing to reload.
+> ⚠️ Budget guidelines and investing suggestions are commonly-cited rules of
+> thumb for educational use — **not personalized financial advice**.
 
-## 💪 Fitness mode
+## 🔒 Data & privacy
 
-| Tab | What it does |
-|-----|--------------|
-| **Home** | Next workout, calories & protein vs. goal, day streak, water / steps / cardio quick-log, this-week's volume per muscle, daily training principle. |
-| **Workout** | Your program's day with per-exercise **progressive-overload suggestions** (double progression), set-by-set weight × reps logging, an auto-starting **rest timer**, plate + warm-up calculator, **exercise swap to anything in the library** (not restricted to the same muscle), tap-for-info on every movement, and an **"+ Add exercise from library"** button (plus a remove button on every card) so you can freely add or drop exercises for today regardless of what's in your saved program. No program at all yet? Tap **"Or just start today"** to log a fully freeform session by picking exercises straight from the library. |
-| **Food** | Macro summary, one-tap **quick-add** common foods, custom entries, today's meal list. |
-| **Library** | 74 exercises across every muscle group — searchable, each with a description, step-by-step cues, target muscles, rep range / RIR, and a science note. |
-| **Progress** | Bodyweight trend, body measurements, estimated strength (e1RM), PR history with celebrations, cardio history, weekly volume. |
-| **Setup** | Profile & goals, experience level, **auto-generate / re-roll** your program, a **Program Builder** to create your own workout by hand (any exercise, any day), equipment filter, export / import / reset data. |
+- Everything is stored in your browser's localStorage under the key `keel.v1`.
+- The **only** network calls are optional live price lookups (CoinGecko /
+  Finnhub); prices are cached on-device so the app works fully offline.
+- **Back up regularly** (Settings → Download full backup) — device storage can
+  be cleared by the OS. Keel also keeps a rolling 7-day snapshot ring on-device
+  and nudges you when a backup is overdue.
+- Migrating from the old Monster Mode dual app? Keel imports your finance data
+  automatically on first load and leaves the old `monsterMode.v1` blob
+  untouched, so the fitness side can become its own app later.
 
-### Building your own program
+## 🛠 Development
 
-Setup → **Build your own program** (or **Edit in Program Builder** if you already have
-one) opens a builder where you can:
-- Name the program and add/remove days freely.
-- Add **any exercise from the full 74-move library to any day** — there's no muscle-group
-  restriction, so an arm day can include calves, a "pull" day can include quads, etc.
-- Edit the sets and rep range for each exercise inline.
+Vanilla JS, no build step. `js/data.js` (pure logic) and `js/charts.js`
+(SVG geometry) are unit-tested under node:
 
-A hand-built program runs through the exact same workout logger, progression
-suggestions, plate calculator, and weekly-volume coverage report as an auto-generated
-one — it's just built by you instead of the algorithm.
-
-## 💰 Finance mode
-
-Built around one simple model: **fixed expenses stay the same every month** (you set
-them up once), and **everything you log day-to-day is variable** — tracked against a
-budget target and your own rolling average.
-
-| Tab | What it does |
-|-----|--------------|
-| **Home** | This month's net cash flow (income − fixed − variable), a bills-paid tracker, any over-budget alerts, a quick-glance at your nearest goal, and recent transactions. |
-| **Log** | Quick-add an expense or income entry (amount, category, note, date); see and delete this month's logged transactions. Tied into Budgets — picking a category shows its budget and how much is left live, and a "Category budgets this month" list keeps every budgeted category visible at a glance while you log. |
-| **Bills** | Your recurring **fixed bills** list (rent, subscriptions, insurance, loans, etc.) — set up once with a name, amount, category, and due day. Check one off each month to log it as paid; the total always counts toward your monthly fixed obligation whether or not it's checked off. |
-| **Goals** | **Savings goals** (Emergency Fund, Vacation, etc.) with an optional target date — log contributions and see a progress bar plus the $/month pace needed to hit your date, with an on-track/behind indicator. **Sinking funds** cover predictable-but-irregular costs (annual insurance, holiday gifts): set a target, contribute over time, then "spend it" to log the real expense and reset the fund for its next cycle. Also includes a **debt payoff planner** — add loans/cards with balance, APR, and minimum payment, choose avalanche (highest APR first, least total interest) or snowball (smallest balance first, faster early wins), add an extra monthly payment, and see a month-by-month payoff timeline and total interest. |
-| **Budgets** | Set an **expected monthly income** and see exactly how much is left for savings after fixed bills and every category budget — with a savings-rate status message against the common ~20% guideline. Each category budget can be a fixed **$** amount or a **% of income** that recomputes automatically as income changes, with a **recommended % range** (e.g. Groceries 10–15%) and a one-tap "Use X%" button. Variable-spending categories are separated from fixed-bill categories (already tracked via Bills). Manage the currency symbol and add custom categories here too. |
-| **Invest** | A 6-question **risk quiz** (age, time horizon, drop tolerance, experience, income stability, emergency fund) that maps you to a **Conservative / Balanced / Growth / Aggressive** model portfolio across US stocks, international stocks, bonds, cash, and a small crypto slice — with example low-cost index ETFs (VTI, VXUS, BND…) and a ~70/30 BTC/ETH split for the crypto sliver. The monthly invest amount is **auto-suggested from your Budgets leftover** (income − fixed bills − budgets) and split into per-bucket dollar amounts. Track your **actual holdings** (shares/coins + optional cost basis) with **live prices** — crypto via CoinGecko (no key needed), stocks/ETFs via an optional free finnhub.io key, with last-fetched prices cached for offline — plus gain/loss and an **actual-vs-target drift view** that tells you which bucket to point new money at. Educational rules of thumb, not financial advice. |
-| **Reports** | Monthly summary (income / fixed / variable / net / savings rate), a spending-by-category breakdown, and a 6-month net-cash-flow trend — pick any of the last 12 months. |
-
-All figures are computed live from your logged transactions, fixed-bill list, goals, and
-debts — nothing needs a bank connection or the internet. The one optional exception:
-the Invest tab can fetch **live stock & crypto prices** when you're online (and remembers
-the last prices for offline use).
-
-### Percentage-based budgets
-
-Each category budget in **Budgets** can work two ways:
-- **Fixed $** — a flat monthly cap, same every month.
-- **% of income** — a share of your **expected income** (auto-suggested from your logged
-  income, or set it yourself). The dollar target recomputes automatically whenever your
-  expected income changes.
-
-Every category shows a **recommended percentage range** (e.g. Groceries 10–15%, Rent
-25–35%) based on commonly-cited financial-planning guidelines — not personalized advice,
-just a sane starting point. Tap **"Use X%"** to apply the midpoint instantly, then adjust.
-
-**Pick your pay frequency** — Weekly, Biweekly, Semi-monthly, Monthly, or Annually — and
-enter the amount for *one pay period* (e.g. one biweekly paycheck). Everything converts
-to a monthly-equivalent automatically, and each category budget also shows a **"≈
-$X/paycheck"** figure so you know how much to set aside from the check that just landed.
-Logging an income entry for "Paycheck" in the Log tab even pre-fills the amount from this
-for you.
-
-The overview at the top of Budgets shows **exactly how much is left for savings**:
-`income − fixed bills − every category budget`, with a status message against the common
-~20% savings-rate guideline, and a one-tap way to log that leftover as a contribution to
-any active savings goal.
-
-### Investing recommendations (Invest tab)
-
-Retake the quiz anytime — the plan updates instantly. Two **safety gates** override the
-raw score: money you'll need within ~3 years caps the plan at Conservative (short-term
-money belongs in savings/T-bills, not stocks), and having **no emergency fund** caps it
-at Balanced with a nudge to build ~3 months of expenses (as a Goal) first.
-
-**Live prices:** crypto quotes come from CoinGecko automatically for ~25 common coins —
-no signup. Stock/ETF quotes need a free API key from [finnhub.io](https://finnhub.io)
-(create an account, copy the key, paste it under *Live price settings*). Prices are
-fetched in USD, cached on your phone, and shown with a "live · Xm ago" stamp so offline
-values are never silently stale; any holding can also carry a manual price instead.
-
-> ⚠️ Everything in the Invest tab is commonly-cited, rule-of-thumb guidance for
-> educational use — **not personalized financial advice**. Markets can lose money, and
-> crypto is treated as a small, lose-able satellite position throughout.
-
-## 🧠 How the auto-generator works
-
-1. Pick a **split** (Full-Body 3d, Upper/Lower 4d, **PPL 6d**, or TNF-style 4d) and your
-   available **equipment**.
-2. The generator fills each training day from the library, then runs a
-   **volume-balancing pass**: it tops up any muscle that's below its weekly minimum
-   (scaled to your experience level) so **every group gets trained enough**, at a
-   frequency of 2×+ per week.
-3. The **coverage report** shows planned weekly sets vs. target for each muscle so you
-   can see the balance at a glance. Hit **re-roll** any time for fresh exercise variety.
-
-**Progressive overload (double progression):** work within the prescribed rep range at
-the target RIR. When you hit the **top** of the range across your sets, the app tells you
-to add weight (jump size scales with experience — advanced lifters micro-load). Otherwise
-it tells you to beat your previous reps.
-
-## 🗂 Project structure
-
-```
-index.html              app shell + mode-aware bottom nav
-css/styles.css          mobile-first dark theme
-js/exercises.js         exercise library + muscle/volume targets
-js/generator.js         split templates, balancing pass, progression engine
-js/finance.js           expense/income categories + date helpers
-js/app.js               UI, routing (Fitness/Finance launcher), logging, localStorage state
-manifest.webmanifest    PWA manifest (installability)
-sw.js                   service worker (offline cache)
-icons/                  app icons
+```sh
+node tests/data.test.js
+node tests/charts.test.js
 ```
 
-## 🔒 Your data
+Script load order in `index.html` is a real dependency chain:
+`data → state → ui → charts → views → app`. When you change any cached asset,
+bump `CACHE` in `sw.js` so installed clients pick it up.
 
-Everything is stored in your browser's **localStorage** on your device. Nothing is sent
-anywhere. Use **Setup → Export** to back up a JSON file, and **Import** to restore it
-(e.g. when moving to a new phone).
+## 🚀 Deploying
 
-## 🌿 Development workflow
-
-- **`main`** — stable, reviewed mainline. GitHub Pages serves this; your installed
-  app updates when work merges here.
-- **`claude/fitness-dashboard-workout-library-467mrd`** — active development branch.
-- Each [roadmap](ROADMAP.md) phase ships as its own **pull request into `main`** so you
-  can review before it goes live.
-
-## 🛠 Run locally
-
-```bash
-# from the repo root
-python3 -m http.server 8099
-# then open http://localhost:8099 in a browser
-```
-
----
-
-*This app is an informational training tool, not medical advice. Warm up, use good form,
-and consult a professional if you're new to lifting or have any health concerns.*
+GitHub Pages serves the repo root. Merge to `main`, then make sure the Pages
+source branch (Settings → Pages) points at `main` — done.
