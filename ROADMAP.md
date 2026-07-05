@@ -65,6 +65,17 @@ Benchmarked against Rocket Money, Monarch, Copilot, and YNAB:
   all-months search, `#hashtag` note tags, automatic merchant-name cleanup
   on imports (raw descriptor preserved for search/rules)
 
+## ✅ Shipped — Keel v3.1 (live bank sync)
+- Hourly auto-sync while the app is in use: on open, on returning to the
+  foreground, and on a slow foreground timer — under a visible daily rate
+  budget honoring SimpleFIN's 24/day cap (auto stops at 20, manual at 24)
+- Pull-to-refresh on every view (bank sync + price refresh)
+- "N new transactions → Sort" toast whenever a sync lands anything
+- Bank status chip on Home/Activity ("synced 12m ago", tap to sync,
+  spins while in flight)
+- Link-your-bank promo card on Home for unconnected users (dismissible),
+  auto-sync toggle + daily-budget readout in Settings
+
 ## ⏳ Ideas for future phases
 - Recurring income beyond paycheck (rental, side gigs)
 - Multi-currency / currency conversion for holdings

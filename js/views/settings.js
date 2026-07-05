@@ -81,13 +81,18 @@ function renderSettings() {
           <span class="row-sub">${esc(a.org)}</span>
           <span class="vol-num money">${fmtMoney(a.balance)}</span>
         </div>`).join("")}
+        <label style="display:flex;align-items:center;gap:10px;margin:10px 0;font-size:0.92rem">
+          <input type="checkbox" id="bank-autosync" ${state.bank.autoSync ? "checked" : ""}/>
+          Auto-sync about hourly while the app is open
+        </label>
+        <p class="row-sub">${syncBudget(state.bank.syncsToday, todayKey()).used} of ${SYNC_DAILY_CAP} daily syncs used (bank data itself usually updates a few times a day).</p>
         <button id="bank-sync-now" class="btn primary block" style="margin-top:10px">${svgIcon("refresh")} Sync now</button>
         <button id="bank-disconnect" class="btn danger block">Disconnect (removes the stored access key)</button>
       ` : `
         <p class="row-sub" style="margin-bottom:10px">Pull transactions from your real bank accounts automatically — no server involved, your credentials never touch this app.
         <br><br>1. Create an account at <strong>bridge.simplefin.org</strong> (small monthly fee, paid to them) and connect your banks there.
         <br>2. Generate a <strong>setup token</strong> ("Connect an app") and paste it below — one time only.
-        <br>3. New transactions land in your Inbox to sort, and account balances feed your net worth.</p>
+        <br>3. New transactions land in your Inbox automatically (about every hour while you use the app — pull down to refresh anytime), and balances feed your net worth.</p>
         <input id="bank-token" class="input" placeholder="Paste SimpleFIN setup token (or access URL)" />
         <button id="bank-connect" class="btn primary block">Connect</button>
         <p class="row-sub">The resulting access key is stored only on this device. Anyone with access to this phone and no PIN could read it — consider the PIN lock below.</p>
@@ -200,6 +205,9 @@ function wireSettings() {
       toast(err.message);
       e.target.disabled = false; e.target.textContent = "Connect";
     }
+  });
+  $("#bank-autosync")?.addEventListener("change", (e) => {
+    mutate(s => { s.bank.autoSync = e.target.checked; });
   });
   $("#bank-sync-now")?.addEventListener("click", (e) => {
     e.target.disabled = true; e.target.textContent = "⏳ Syncing…";

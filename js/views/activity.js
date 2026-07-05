@@ -87,6 +87,7 @@ function renderActivity() {
   const inboxCount = inboxTxns().length;
   return `
     ${pageHeader("Activity", { stepper: true })}
+    ${bankStatusChipHTML()}
     ${inboxCount ? `<button class="nudge" data-nav="inbox" style="width:100%;text-align:left;cursor:pointer">
       <div class="nudge-body">${svgIcon("inbox")} <strong>${inboxCount}</strong> transaction${inboxCount > 1 ? "s" : ""} waiting to be sorted</div>
       <span class="btn small">Sort now</span>
@@ -117,6 +118,7 @@ function renderActivity() {
 }
 
 function wireActivity() {
+  wireBankChip();
   const key = getViewedMonth();
   let debounce = null;
   $("#act-search")?.addEventListener("input", (e) => {

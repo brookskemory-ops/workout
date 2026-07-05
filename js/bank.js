@@ -7,7 +7,7 @@
  * ==========================================================================*/
 
 const BANK_TIMEOUT_MS = 15000;
-const BANK_AUTO_SYNC_MS = 6 * 60 * 60 * 1000; // ≤4/day, far under the 24/day limit
+const BANK_AUTO_SYNC_MS = 60 * 60 * 1000; // hourly while in use; the daily budget below enforces the 24/day cap
 const BANK_OVERLAP_DAYS = 3;                  // re-fetch window so nothing is missed
 const BANK_FIRST_SYNC_DAYS = 60;
 
@@ -58,14 +58,22 @@ async function connectBank(input) {
   return accessUrl;
 }
 
-// Pulls new transactions + balances into the app. silent=true for the
-// on-open auto-sync (no toasts, no error noise when offline).
+// Pulls new transactions + balances into the app. silent=true for automatic
+// syncs (no status toasts, no error noise when offline) — but NEW
+// transactions always announce themselves so the app feels live.
 let bankSyncInFlight = false;
 async function syncBank(silent) {
   const bank = state.bank;
-  if (!bank.accessUrl || bankSyncInFlight) return;
+  if (!bank.accessUrl || bankSyncInFlight) return 0;
+  const budget = syncBudget(bank.syncsToday, todayKey());
+  if (!budget.manualAllowed) {
+    if (!silent) toast("Bank rate limit reached for today — resets tomorrow");
+    return 0;
+  }
   bankSyncInFlight = true;
+  if (currentRoute() !== "welcome") render(); // spin the status chip
   try {
+    bumpSyncCount();
     const sinceDays = bank.lastSyncAt ? BANK_OVERLAP_DAYS : BANK_FIRST_SYNC_DAYS;
     const startDate = Math.floor((bank.lastSyncAt ? new Date(bank.lastSyncAt).getTime() : Date.now()) / 1000) - sinceDays * 86400;
     const data = await bankFetch(bank.accessUrl, "/accounts", { "start-date": startDate });
@@ -73,22 +81,36 @@ async function syncBank(silent) {
     const mapped = mapSimplefinTransactions(data, existingBankIds(), state.rules);
     applyBankSync(mapped);
     if (currentRoute() !== "welcome") render();
-    if (!silent) {
-      toast(mapped.txns.length
-        ? `Synced ✓ · ${mapped.txns.length} new transaction${mapped.txns.length > 1 ? "s" : ""} in the Inbox`
-        : "Synced ✓ · nothing new");
+    const n = mapped.txns.length;
+    if (n) {
+      toast(`${n} new transaction${n > 1 ? "s" : ""} from your bank`,
+        { action: "Sort", onAction: () => navigate("inbox") });
+    } else if (!silent) {
+      toast("Synced ✓ · nothing new");
     }
+    return n;
   } catch (e) {
     if (!silent) toast(navigator.onLine === false ? "You're offline — try again later" : e.message);
+    return 0;
   } finally {
     bankSyncInFlight = false;
+    if (currentRoute() !== "welcome") render();
   }
 }
 
-// Called at boot and on Home render.
+// Called at boot, when the app returns to the foreground, and by a slow
+// foreground timer — the throttle + daily budget decide if a request is due.
 function maybeAutoSyncBank() {
   const bank = state.bank;
   if (!bank.accessUrl || !bank.autoSync || navigator.onLine === false) return;
+  if (document.hidden) return;
+  if (!syncBudget(bank.syncsToday, todayKey()).autoAllowed) return;
   if (bank.lastSyncAt && Date.now() - new Date(bank.lastSyncAt).getTime() < BANK_AUTO_SYNC_MS) return;
   syncBank(true);
+}
+// Returning to the app is the natural "check my money" moment.
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) maybeAutoSyncBank();
+  });
 }

@@ -835,6 +835,21 @@ function topMerchants(transactions, key, n) {
   return [...groups.values()].sort((a, b) => b.total - a.total).slice(0, n || 5);
 }
 
+/* ------------------------------ sync rate budget --------------------------- */
+// SimpleFIN allows <=24 requests/day. Auto-syncs stop earlier so manual pulls
+// always have headroom.
+const SYNC_DAILY_CAP = 24;
+const SYNC_AUTO_CAP = 20;
+function syncBudget(syncsToday, today) {
+  const count = syncsToday && syncsToday.date === today ? syncsToday.count : 0;
+  return {
+    used: count,
+    autoAllowed: count < SYNC_AUTO_CAP,
+    manualAllowed: count < SYNC_DAILY_CAP,
+    left: Math.max(0, SYNC_DAILY_CAP - count),
+  };
+}
+
 /* ------------------------------ bank sync (SimpleFIN) --------------------- */
 // Maps a SimpleFIN /accounts response into importable transactions. Pending
 // transactions are skipped (they change/disappear); dedupe via bankId.
@@ -954,5 +969,6 @@ if (typeof module !== "undefined") {
     mapSimplefinTransactions, rolloverCarry,
     merchantKey, prettyMerchant, detectRecurring, avgDailyVariableSpend,
     forecastMonth, spendingAnomalies, topMerchants,
+    syncBudget, SYNC_DAILY_CAP, SYNC_AUTO_CAP,
   };
 }
