@@ -20,8 +20,11 @@ const ROUTES = {
 
 applyTheme();
 buildTabBar();
+initPullToRefresh();
 runAutomations();
 render();
+// give the hourly bank-sync throttle regular chances while the app stays open
+setInterval(() => maybeAutoSyncBank(), 5 * 60 * 1000);
 lockOnBootIfEnabled().then(() => {
   if (state.settings.onboarded) maybeShowMonthlyRecap();
   // PWA home-screen shortcut: ?action=log-expense / log-income

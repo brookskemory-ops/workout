@@ -50,12 +50,14 @@ const DEFAULT_STATE = {
     accounts: [],        // [{id, name, org, balance, balanceDate}]
     lastSyncAt: null,
     autoSync: true,
+    syncsToday: { date: null, count: 0 }, // daily rate budget vs SimpleFIN's 24/day cap
   },
   ui: {
     lastExpenseCategory: null,
     lastIncomeCategory: null,
     categoryUseCounts: {},
     lastRecapMonth: null,
+    dismissedBankPromo: false,
     theme: "dark",       // 'system' | 'dark' | 'light'
     autoLog: [],         // [{date, label}] queued for the monthly recap
   },
@@ -605,6 +607,13 @@ function disconnectBank() {
 function applyBankSync({ txns, accounts }) {
   mutate(s => { s.bank.accounts = accounts; s.bank.lastSyncAt = new Date().toISOString(); });
   if (txns.length) importTransactions(txns);
+}
+function bumpSyncCount() {
+  mutate(s => {
+    const today = todayKey();
+    if (s.bank.syncsToday.date !== today) s.bank.syncsToday = { date: today, count: 0 };
+    s.bank.syncsToday.count++;
+  });
 }
 function bankCashTotal() {
   return state.bank.accounts.reduce((a, x) => a + (x.balance || 0), 0);

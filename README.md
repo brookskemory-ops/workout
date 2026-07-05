@@ -42,11 +42,16 @@ Keel can pull transactions from your real bank accounts with **no server
 involved**, via [SimpleFIN Bridge](https://bridge.simplefin.org) — a
 third-party service (small monthly fee, paid to them) that connects to
 thousands of institutions. Create an account there, connect your banks, and
-paste a **setup token** into Keel's Settings → Bank sync. New transactions
-appear in your Inbox to sort (rules learn as you go), account balances feed
-your net worth, and syncs run automatically about every 6 hours when you open
-the app. The access credential is stored **only on this device** — pair it
-with the PIN lock. Prefer zero third parties? The **CSV import** wizard
+paste a **setup token** into Keel's Settings → Bank sync. From then on it's
+**live**: Keel syncs when you open the app, whenever you come back to it, and
+about hourly while it stays open — plus **pull down to refresh** anytime. New
+transactions announce themselves with a "N new transactions → Sort" toast and
+land in your Inbox; a status chip on Home/Activity shows exactly how fresh you
+are and taps to force a sync. A visible daily budget keeps everything inside
+SimpleFIN's 24-requests/day limit (banks themselves post transactions a few
+times a day — that's the true freshness ceiling for *any* finance app). The
+access credential is stored **only on this device** — pair it with the PIN
+lock. Prefer zero third parties? The **CSV import** wizard
 (Activity → Import CSV) does the same job manually with statements you
 download from your bank.
 

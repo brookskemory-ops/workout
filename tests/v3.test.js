@@ -158,3 +158,17 @@ const c = require("../js/charts.js");
   } catch (e) { ok = false; console.error("✗ flowChart geometry\n  " + e.message); process.exitCode = 1; }
   if (ok) { passed++; console.log(`(+flow) v3 total: ${passed} passed`); }
 }
+
+/* ------------------------- sync rate budget ------------------------- */
+t("syncBudget resets on a new day, caps auto then manual", () => {
+  assert.deepStrictEqual(f.syncBudget(null, "2026-07-05"),
+    { used: 0, autoAllowed: true, manualAllowed: true, left: 24 });
+  assert.strictEqual(f.syncBudget({ date: "2026-07-04", count: 23 }, "2026-07-05").used, 0); // stale date resets
+  const at20 = f.syncBudget({ date: "2026-07-05", count: 20 }, "2026-07-05");
+  assert.strictEqual(at20.autoAllowed, false);
+  assert.strictEqual(at20.manualAllowed, true);
+  const at24 = f.syncBudget({ date: "2026-07-05", count: 24 }, "2026-07-05");
+  assert.strictEqual(at24.manualAllowed, false);
+  assert.strictEqual(at24.left, 0);
+});
+console.log(`(+budget) v3 total: ${passed} passed`);

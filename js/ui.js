@@ -236,6 +236,73 @@ function txnRowHTML(t, editable) {
   </${editable ? "button" : "div"}>`;
 }
 
+/* ------------------------------ bank status chip --------------------------- */
+// "Bank · synced 12m ago" under the header on money views. Tapping forces a
+// manual sync; the icon spins while a sync is in flight.
+function bankStatusChipHTML() {
+  if (!state.bank.accessUrl) return "";
+  const busy = typeof bankSyncInFlight !== "undefined" && bankSyncInFlight;
+  return `<button class="bank-chip ${busy ? "busy" : ""}" id="bank-chip" aria-label="Sync bank now">
+    ${svgIcon("refresh")} Bank · ${busy ? "syncing…" : state.bank.lastSyncAt ? `synced ${fmtAgo(state.bank.lastSyncAt)}` : "not synced yet"}
+  </button>`;
+}
+function wireBankChip() {
+  $("#bank-chip")?.addEventListener("click", () => syncBank(false));
+}
+
+/* ------------------------------ pull-to-refresh ---------------------------- */
+// Custom PTR (standalone PWAs have no native one): pull down from the top of
+// the view to sync the bank + refresh prices. Skips pulls that start on the
+// inbox drag card.
+function initPullToRefresh() {
+  const view = $("#view");
+  const ptr = document.createElement("div");
+  ptr.id = "ptr";
+  ptr.innerHTML = svgIcon("refresh");
+  document.body.appendChild(ptr);
+
+  let startY = null, pulling = false, dist = 0;
+  const THRESHOLD = 70;
+
+  view.addEventListener("touchstart", (e) => {
+    if (view.scrollTop > 0 || e.target.closest?.(".inbox-card, .overlay-backdrop")) { startY = null; return; }
+    startY = e.touches[0].clientY;
+    dist = 0;
+  }, { passive: true });
+
+  view.addEventListener("touchmove", (e) => {
+    if (startY == null) return;
+    dist = e.touches[0].clientY - startY;
+    if (dist <= 0) { if (pulling) endPull(); return; }
+    pulling = true;
+    const eased = Math.min(dist * 0.45, 90);
+    ptr.style.transform = `translateX(-50%) translateY(${eased}px) rotate(${eased * 3}deg)`;
+    ptr.classList.add("visible");
+    ptr.classList.toggle("armed", dist * 0.45 >= THRESHOLD * 0.45 && dist >= THRESHOLD);
+  }, { passive: true });
+
+  const endPull = () => {
+    const fire = pulling && dist >= THRESHOLD;
+    pulling = false; startY = null;
+    ptr.classList.remove("armed");
+    if (fire) {
+      ptr.classList.add("spinning");
+      ptr.style.transform = `translateX(-50%) translateY(46px)`;
+      const done = () => { ptr.classList.remove("visible", "spinning"); ptr.style.transform = ""; };
+      const tasks = [];
+      if (state.bank.accessUrl) tasks.push(syncBank(false));
+      if (state.invest.holdings.length) tasks.push(refreshInvestPrices(true));
+      if (!tasks.length) { render(); toast("Refreshed"); }
+      Promise.allSettled(tasks).then(() => setTimeout(done, 400));
+    } else {
+      ptr.classList.remove("visible");
+      ptr.style.transform = "";
+    }
+  };
+  view.addEventListener("touchend", endPull, { passive: true });
+  view.addEventListener("touchcancel", endPull, { passive: true });
+}
+
 /* ------------------------------ confetti ---------------------------------- */
 function launchConfetti() {
   const wrap = document.createElement("div");

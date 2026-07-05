@@ -51,6 +51,16 @@ function backupNudgeHTML() {
   </div>`;
 }
 
+function bankPromoHTML() {
+  if (state.bank.accessUrl || state.ui.dismissedBankPromo) return "";
+  return `<div class="card hero-card" id="bank-promo">
+    <button class="promo-close" data-dismiss-promo aria-label="Dismiss">${svgIcon("x")}</button>
+    <div class="card-label">${svgIcon("landmark")} Link your bank</div>
+    <p class="row-sub" style="margin:4px 0 12px">New transactions flow straight into your Inbox to sort — synced automatically about every hour you're using the app, with balances feeding your net worth.</p>
+    <button class="btn primary block" data-nav="settings">Connect a bank</button>
+  </div>`;
+}
+
 function renewalNudgesHTML() {
   if (getViewedMonth() !== currentMonthKey()) return "";
   const today = todayKey();
@@ -301,6 +311,8 @@ function renderHome() {
   const recent = txnsInMonth(state.transactions, key).slice().sort((a, b) => b.date < a.date ? -1 : 1).slice(0, 5);
   return `
     ${pageHeader("Keel", { stepper: true })}
+    ${bankStatusChipHTML()}
+    ${bankPromoHTML()}
     ${inboxNudgeHTML()}
     ${backupNudgeHTML()}
     ${billNudgesHTML()}
@@ -329,6 +341,12 @@ function renderHome() {
 }
 function wireHome() {
   maybeAutoSyncBank();
+  wireBankChip();
+  $("[data-dismiss-promo]")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    mutate(s => { s.ui.dismissedBankPromo = true; });
+    render();
+  });
   $$("[data-pay-bill]").forEach(b => b.addEventListener("click", () => {
     toggleBillPaid(b.dataset.payBill, currentMonthKey());
     buzz(); toast("Bill marked paid ✓");
