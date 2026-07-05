@@ -72,7 +72,7 @@ function renderOnboarding() {
         const on = obPicks[c.id] != null;
         const dollars = income > 0 ? ` ≈ ${fmtMoney((mid / 100) * income)}` : "";
         return `<button class="chip ${on ? "sel" : ""}" data-ob-cat="${c.id}" data-ob-pct="${mid}" style="margin:0 6px 8px 0">
-          ${c.icon} ${esc(c.name)} · ${mid}%${dollars}</button>`;
+          ${catIconHTML(c)} ${esc(c.name)} · ${mid}%${dollars}</button>`;
       }).join("")}
     </div>
     <button class="btn primary block" data-ob-finish>Start using Keel</button>

@@ -8,29 +8,29 @@
 // `typical` hints which list a category belongs to by default (bills vs
 // day-to-day spending) — any category can be used for either.
 const EXPENSE_CATEGORIES = [
-  { id: "groceries",     name: "Groceries",        icon: "🛒", typical: "variable" },
-  { id: "dining",        name: "Dining Out",       icon: "🍽️", typical: "variable" },
-  { id: "transport",     name: "Transport / Gas",  icon: "⛽", typical: "variable" },
-  { id: "shopping",      name: "Shopping",         icon: "🛍️", typical: "variable" },
-  { id: "entertainment", name: "Entertainment",    icon: "🎬", typical: "variable" },
-  { id: "health",        name: "Health / Medical", icon: "💊", typical: "variable" },
-  { id: "personal",      name: "Personal Care",    icon: "💇", typical: "variable" },
-  { id: "travel",        name: "Travel",           icon: "✈️", typical: "variable" },
-  { id: "gifts",         name: "Gifts / Donations",icon: "🎁", typical: "variable" },
-  { id: "misc",          name: "Misc",             icon: "📦", typical: "variable" },
-  { id: "rent",          name: "Rent / Mortgage",  icon: "🏠", typical: "fixed" },
-  { id: "utilities",     name: "Utilities",        icon: "💡", typical: "fixed" },
-  { id: "insurance",     name: "Insurance",        icon: "🛡️", typical: "fixed" },
-  { id: "subscriptions", name: "Subscriptions",    icon: "📺", typical: "fixed" },
-  { id: "loan",          name: "Loan / Debt Payment", icon: "🏦", typical: "fixed" },
+  { id: "groceries",     name: "Groceries",        icon: "cart", typical: "variable" },
+  { id: "dining",        name: "Dining Out",       icon: "utensils", typical: "variable" },
+  { id: "transport",     name: "Transport / Gas",  icon: "fuel", typical: "variable" },
+  { id: "shopping",      name: "Shopping",         icon: "bag", typical: "variable" },
+  { id: "entertainment", name: "Entertainment",    icon: "film", typical: "variable" },
+  { id: "health",        name: "Health / Medical", icon: "heart-pulse", typical: "variable" },
+  { id: "personal",      name: "Personal Care",    icon: "scissors", typical: "variable" },
+  { id: "travel",        name: "Travel",           icon: "plane", typical: "variable" },
+  { id: "gifts",         name: "Gifts / Donations",icon: "gift", typical: "variable" },
+  { id: "misc",          name: "Misc",             icon: "box", typical: "variable" },
+  { id: "rent",          name: "Rent / Mortgage",  icon: "home", typical: "fixed" },
+  { id: "utilities",     name: "Utilities",        icon: "zap", typical: "fixed" },
+  { id: "insurance",     name: "Insurance",        icon: "shield", typical: "fixed" },
+  { id: "subscriptions", name: "Subscriptions",    icon: "tv", typical: "fixed" },
+  { id: "loan",          name: "Loan / Debt Payment", icon: "landmark", typical: "fixed" },
 ];
 
 const INCOME_CATEGORIES = [
-  { id: "paycheck",     name: "Paycheck",                icon: "💼" },
-  { id: "freelance",    name: "Freelance / Side Income", icon: "🧾" },
-  { id: "bonus",        name: "Bonus",                   icon: "🎉" },
-  { id: "gift_in",      name: "Gift Received",           icon: "🎁" },
-  { id: "other_income", name: "Other Income",            icon: "➕" },
+  { id: "paycheck",     name: "Paycheck",                icon: "briefcase" },
+  { id: "freelance",    name: "Freelance / Side Income", icon: "file-text" },
+  { id: "bonus",        name: "Bonus",                   icon: "star" },
+  { id: "gift_in",      name: "Gift Received",           icon: "gift" },
+  { id: "other_income", name: "Other Income",            icon: "plus-circle" },
 ];
 
 const EXPENSE_CAT_BY_ID = Object.fromEntries(EXPENSE_CATEGORIES.map(c => [c.id, c]));
@@ -502,22 +502,22 @@ const RISK_QUIZ_MAX = RISK_QUIZ.reduce((a, q) => a + Math.max(...q.opts.map(o =>
 
 const RISK_PROFILES = {
   conservative: {
-    label: "Conservative", icon: "🛡️",
+    label: "Conservative", icon: "shield",
     blurb: "Capital preservation first. Mostly bonds and cash, a modest stock allocation, no crypto.",
     allocation: { us: 30, intl: 10, bonds: 50, cash: 10, crypto: 0 },
   },
   balanced: {
-    label: "Balanced", icon: "⚖️",
+    label: "Balanced", icon: "scale",
     blurb: "A classic middle ground — mostly stocks for growth, a real bond cushion, a token crypto position.",
     allocation: { us: 45, intl: 15, bonds: 32, cash: 3, crypto: 5 },
   },
   growth: {
-    label: "Growth", icon: "🌱",
+    label: "Growth", icon: "sprout",
     blurb: "Long-horizon growth. Stock-heavy with a small bond buffer and a satellite crypto position.",
     allocation: { us: 55, intl: 20, bonds: 15, cash: 2, crypto: 8 },
   },
   aggressive: {
-    label: "Aggressive", icon: "🚀",
+    label: "Aggressive", icon: "rocket",
     blurb: "Maximum growth for a long horizon and a strong stomach. Nearly all stocks, crypto at the common ~10% ceiling.",
     allocation: { us: 60, intl: 25, bonds: 3, cash: 2, crypto: 10 },
   },
@@ -525,24 +525,24 @@ const RISK_PROFILES = {
 
 // `cls` maps to the CSS chart palette (--chart-1..6) — no hex in JS.
 const ALLOCATION_BUCKETS = [
-  { id: "us",     name: "US stocks",            icon: "📈", cls: "c1", examples: [
+  { id: "us",     name: "US stocks",            icon: "trending-up", cls: "c1", examples: [
     { symbol: "VTI", name: "Vanguard Total US Market" },
     { symbol: "VOO", name: "Vanguard S&P 500" },
     { symbol: "SCHB", name: "Schwab Broad Market" },
   ]},
-  { id: "intl",   name: "International stocks", icon: "🌍", cls: "c2", examples: [
+  { id: "intl",   name: "International stocks", icon: "globe", cls: "c2", examples: [
     { symbol: "VXUS", name: "Vanguard Total International" },
     { symbol: "IXUS", name: "iShares Total International" },
   ]},
-  { id: "bonds",  name: "Bonds",                icon: "🏛️", cls: "c6", examples: [
+  { id: "bonds",  name: "Bonds",                icon: "landmark", cls: "c6", examples: [
     { symbol: "BND", name: "Vanguard Total Bond" },
     { symbol: "AGG", name: "iShares Core US Bond" },
   ]},
-  { id: "cash",   name: "Cash / T-bills",       icon: "💵", cls: "c4", examples: [
+  { id: "cash",   name: "Cash / T-bills",       icon: "banknote", cls: "c4", examples: [
     { symbol: "SGOV", name: "iShares 0–3 Month Treasury" },
     { symbol: "HYSA", name: "High-yield savings account" },
   ]},
-  { id: "crypto", name: "Crypto",               icon: "₿",  cls: "c3", examples: [
+  { id: "crypto", name: "Crypto",               icon: "bitcoin",  cls: "c3", examples: [
     { symbol: "BTC", name: "Bitcoin (~70% of crypto slice)" },
     { symbol: "ETH", name: "Ethereum (~30% of crypto slice)" },
   ]},

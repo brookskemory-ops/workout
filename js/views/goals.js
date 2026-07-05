@@ -37,7 +37,7 @@ function goalCardHTML(g) {
         <div style="font-weight:700">${esc(g.name)}</div>
         <div class="row-sub">${g.kind === "sinking" ? "Sinking fund" : "Savings goal"}${g.targetDate ? ` · by ${fmtMonth(monthKey(g.targetDate))}` : ""}</div>
       </div>
-      <button class="icon-btn" data-edit-goal="${g.id}" aria-label="Edit ${esc(g.name)}">✎</button>
+      <button class="icon-btn" data-edit-goal="${g.id}" aria-label="Edit ${esc(g.name)}">${svgIcon("pencil")}</button>
     </div>
     ${barHTML(pct, pacing && pacing.onTrack === false ? "warn" : "pos")}
     <div class="row-sub money">${fmtMoney(current)} / ${fmtMoney(g.target)}</div>
@@ -47,7 +47,7 @@ function goalCardHTML(g) {
       <button class="btn" data-goal-add="${g.id}">Add</button>
     </div>
     <button class="btn ghost block small" style="margin-top:8px" data-goal-complete="${g.id}">
-      ${g.kind === "sinking" ? "Spend it (log expense & reset)" : "🏆 Mark reached"}</button>
+      ${g.kind === "sinking" ? "Spend it (log expense & reset)" : "Mark reached"}</button>
   </div>`;
 }
 
@@ -62,12 +62,12 @@ function debtPlannerHTML() {
     ${debts.length ? debts.map(d => {
       const p = plan?.order.find(x => x.id === d.id);
       return `<div class="row">
-        <span class="row-tile">💳</span>
+        <span class="row-tile">${svgIcon("credit-card")}</span>
         <span class="row-main">
           <span class="row-title">${esc(d.name)}</span>
           <span class="row-sub money">${fmtMoney(d.balance)} · ${d.apr || 0}% APR · min ${fmtMoney(d.minPayment)}/mo${p ? ` · gone in ${p.paidOffMonth ?? "600+"} mo` : ""}</span>
         </span>
-        <button class="icon-btn" data-edit-debt="${d.id}" aria-label="Edit ${esc(d.name)}">✎</button>
+        <button class="icon-btn" data-edit-debt="${d.id}" aria-label="Edit ${esc(d.name)}">${svgIcon("pencil")}</button>
       </div>`;
     }).join("") : `<p class="row-sub" style="margin-bottom:10px">Track loans and cards to see a payoff date and total interest.</p>`}
     ${debts.length ? `
@@ -104,7 +104,7 @@ function goalsSegmentHTML() {
     <div class="card">
       <div class="card-label">Active goals</div>
       ${active.length ? active.map(goalCardHTML).join("")
-        : emptyStateHTML("🎯", "No goals yet. Start an emergency fund,<br>a trip, or a sinking fund for annual bills.")}
+        : emptyStateHTML("target", "No goals yet. Start an emergency fund,<br>a trip, or a sinking fund for annual bills.")}
     </div>
     <div class="card">
       <div class="card-label">New goal</div>
@@ -122,7 +122,7 @@ function goalsSegmentHTML() {
       <button id="goal-add" class="btn primary block">+ Add goal</button>
     </div>
     ${achieved.length ? `<div class="card">
-      <div class="card-label">🏆 Completed</div>
+      <div class="card-label">Completed</div>
       ${achieved.map(g => `<div class="vol-row"><span class="vol-label">${esc(g.name)}</span><span class="vol-num money">${fmtMoney(g.target)}</span></div>`).join("")}
     </div>` : ""}
     ${debtPlannerHTML()}
@@ -166,7 +166,7 @@ function wireGoalsSegment() {
       updateGoal(g.id, { achieved: true });
       buzz(30);
       launchConfetti();
-      render(); toast(`🏆 ${g.name} reached!`);
+      render(); toast(`${g.name} reached!`);
     }
   }));
   $$("[data-edit-goal]").forEach(b => b.addEventListener("click", () => {

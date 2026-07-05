@@ -10,7 +10,7 @@ function renderYear() {
 
   if (!active.length) {
     return `${pageHeader("Year in Review", { sub: "Last 12 months" })}
-      <div class="card">${emptyStateHTML("📆", "Nothing logged in the last 12 months yet.")}</div>`;
+      <div class="card">${emptyStateHTML("calendar", "Nothing logged in the last 12 months yet.")}</div>`;
   }
 
   const totalIncome = active.reduce((a, m) => a + m.income, 0);
@@ -36,7 +36,7 @@ function renderYear() {
       <div class="hero-meta">
         <span class="money">＋ ${fmtMoney(totalIncome)} earned</span>
         <span class="money">− ${fmtMoney(totalSpend)} spent</span>
-        ${avgRate != null ? `<span class="money">◔ ${avgRate}% avg savings rate</span>` : ""}
+        ${avgRate != null ? `<span class="money"><i class="dot c2"></i>${avgRate}% avg savings rate</span>` : ""}
       </div>
     </div>
 
@@ -59,7 +59,7 @@ function renderYear() {
     <div class="card">
       <div class="card-label">Where the year went</div>
       ${catTotals.slice(0, 10).map((x, i) => `<div class="vol-row">
-        <span class="vol-label">${x.c.icon} ${esc(x.c.name)}</span>
+        <span class="vol-label">${catIconHTML(x.c)} ${esc(x.c.name)}</span>
         ${barHTML((x.v / maxCat) * 100, `c${(i % 6) + 1}`)}
         <span class="vol-num money">${fmtMoney(x.v)}</span>
       </div>`).join("")}

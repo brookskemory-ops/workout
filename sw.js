@@ -1,10 +1,11 @@
 /* Keel service worker — offline-first caching.
    Bump CACHE on every release to force clients onto the new version. */
-const CACHE = "keel-v2";
+const CACHE = "keel-v3";
 const ASSETS = [
   "./",
   "./index.html",
   "./css/styles.css",
+  "./js/icons.js",
   "./js/data.js",
   "./js/state.js",
   "./js/ui.js",

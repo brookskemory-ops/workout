@@ -82,9 +82,9 @@ function investQuizHTML(inv) {
     const p = RISK_PROFILES[result.profileId];
     return `<div class="card hero-card">
       <div class="card-label">Your risk profile</div>
-      <div class="hero-amount" style="font-size:1.6rem">${p.icon} ${p.label}</div>
+      <div class="hero-amount" style="font-size:1.6rem">${svgIcon(p.icon, "big")} ${p.label}</div>
       <div class="row-sub" style="margin-top:6px">${p.blurb} (Score ${result.score}/${result.max}.)</div>
-      <button id="quiz-retake" class="btn ghost small" style="margin-top:12px">↺ Retake quiz</button>
+      <button id="quiz-retake" class="btn ghost small" style="margin-top:12px">${svgIcon("rotate-ccw")} Retake quiz</button>
     </div>`;
   }
   const answered = RISK_QUIZ.filter(q => answers[q.id] != null).length;
@@ -132,7 +132,7 @@ function investPlanHTML(inv, result) {
     ${ALLOCATION_BUCKETS.filter(b => alloc[b.id] > 0).map(b => {
       const row = plan.find(r => r.bucket.id === b.id);
       return `<div class="vol-row">
-        <span class="vol-label">${b.icon} ${esc(b.name)}</span>
+        <span class="vol-label">${svgIcon(b.icon)} ${esc(b.name)}</span>
         ${barHTML(alloc[b.id], b.cls)}
         <span class="vol-num money">${alloc[b.id]}%${row && monthly > 0 ? ` · ${fmtMoney(row.amount)}` : ""}</span>
       </div>
@@ -155,13 +155,13 @@ function holdingRowHTML(h, inv) {
   }
   const bucket = h.kind === "crypto" ? BUCKET_BY_ID.crypto : BUCKET_BY_ID[h.bucket || guessBucketForSymbol(h.symbol)];
   return `<div class="row">
-    <span class="row-tile">${h.kind === "crypto" ? "₿" : "📈"}</span>
+    <span class="row-tile">${svgIcon(h.kind === "crypto" ? "bitcoin" : "trending-up")}</span>
     <span class="row-main">
       <span class="row-title">${esc(h.symbol.toUpperCase())} <span class="row-sub">× ${h.quantity}</span></span>
       <span class="row-sub">${esc(bucket.name)} · ${fmtPrice(price)} · ${src}${gain}</span>
     </span>
     <span class="row-end"><span class="money">${fmtMoney(value)}</span></span>
-    <button class="icon-btn" data-edit-holding="${h.id}" aria-label="Edit ${esc(h.symbol)}">✎</button>
+    <button class="icon-btn" data-edit-holding="${h.id}" aria-label="Edit ${esc(h.symbol)}">${svgIcon("pencil")}</button>
   </div>`;
 }
 
@@ -171,12 +171,12 @@ function portfolioCardHTML(inv) {
     <div class="card-label">Portfolio${inv.holdings.length ? ` · ${fmtMoney(total)}` : ""}</div>
     ${inv.holdings.length
       ? inv.holdings.map(h => holdingRowHTML(h, inv)).join("") +
-        `<button id="invest-refresh" class="btn ghost block" style="margin-top:10px">↻ Refresh prices</button>`
-      : emptyStateHTML("📊", "Track what you own — ETF shares or crypto —<br>and compare it to your plan.")}
+        `<button id="invest-refresh" class="btn ghost block" style="margin-top:10px">${svgIcon("refresh")} Refresh prices</button>`
+      : emptyStateHTML("chart-pie", "Track what you own — ETF shares or crypto —<br>and compare it to your plan.")}
     <div class="card-label" style="margin-top:14px">Add a holding</div>
     ${segmentedHTML([
-      { id: "stock", label: "📈 Stock / ETF" },
-      { id: "crypto", label: "₿ Crypto" },
+      { id: "stock", label: "Stock / ETF" },
+      { id: "crypto", label: "Crypto" },
     ], "stock", "holding-kind")}
     <div class="input-pair">
       <input id="holding-symbol" class="input" placeholder="Ticker (e.g. VTI)" autocapitalize="characters" />
@@ -186,7 +186,7 @@ function portfolioCardHTML(inv) {
     <button id="holding-add" class="btn primary block">+ Add holding</button>
     <details style="margin-top:8px">
       <summary class="row-sub" style="cursor:pointer">Live price settings</summary>
-      <p class="row-sub" style="margin:8px 0">Crypto prices come from CoinGecko automatically. Stock/ETF quotes need a free API key from <strong>finnhub.io</strong>. Prices are USD and cached for offline. Any holding can carry a manual price instead (tap ✎).</p>
+      <p class="row-sub" style="margin:8px 0">Crypto prices come from CoinGecko automatically. Stock/ETF quotes need a free API key from <strong>finnhub.io</strong>. Prices are USD and cached for offline. Any holding can carry a manual price instead (tap the pencil).</p>
       <input id="invest-finnhub" class="input" placeholder="Finnhub API key (optional)" value="${esc(inv.finnhubKey || "")}" />
     </details>
   </div>`;
@@ -207,7 +207,7 @@ function driftCardHTML(inv, result) {
       const flag = Math.abs(drift) >= 5
         ? `<span class="${drift > 0 ? "warn" : "info"}"> ${drift > 0 ? "▲" : "▼"}${Math.abs(drift).toFixed(0)}</span>` : "";
       return `<div class="vol-row">
-        <span class="vol-label">${b.icon} ${esc(b.name)}</span>
+        <span class="vol-label">${svgIcon(b.icon)} ${esc(b.name)}</span>
         <div class="bar compare-bar"><div class="bar-fill ${b.cls}" style="width:${Math.min(100, actual)}%"></div>
           <div class="target-tick" style="left:${Math.min(100, target)}%"></div></div>
         <span class="vol-num money">${actual.toFixed(0)}%/${target}%${flag}</span>
@@ -311,7 +311,7 @@ function showHoldingEditModal(h) {
     ${h.kind === "stock" ? `
       <label class="field-label">Asset class (for the drift view)</label>
       <select id="eh-bucket" class="select">${stockBuckets.map(b =>
-        `<option value="${b.id}" ${(h.bucket || guessBucketForSymbol(h.symbol)) === b.id ? "selected" : ""}>${b.icon} ${esc(b.name)}</option>`).join("")}</select>` : ""}
+        `<option value="${b.id}" ${(h.bucket || guessBucketForSymbol(h.symbol)) === b.id ? "selected" : ""}>${esc(b.name)}</option>`).join("")}</select>` : ""}
     <button id="eh-save" class="btn primary block">Save changes</button>
     <button id="eh-delete" class="btn danger block">Delete holding</button>
   `, (root) => {
