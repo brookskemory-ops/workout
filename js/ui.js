@@ -226,7 +226,7 @@ function txnRowHTML(t, editable) {
   return `<${editable ? "button" : "div"} class="row txn-row" ${editable ? `data-edit-txn="${t.id}"` : ""}>
     <span class="row-tile" aria-hidden="true">${catIconHTML(cat)}</span>
     <span class="row-main">
-      <span class="row-title">${esc(t.note || cat.name)}</span>
+      <span class="row-title">${esc(t.note || cat.name).replace(/#([\w-]+)/g, '<span class="tag-hl">#$1</span>')}</span>
       <span class="row-sub">${esc(cat.name)}${t.source === "fixed" ? " · bill" : ""}</span>
     </span>
     <span class="row-end">

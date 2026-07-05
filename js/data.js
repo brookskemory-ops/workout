@@ -461,9 +461,10 @@ function mapCSVRows(rows, mapping, dateFmt, rules, existingKeys) {
     if (seen.has(key)) { skippedDupes++; continue; }
     seen.add(key);
     out.push({
-      date, amount: Math.abs(amount), note: desc,
+      date, amount: Math.abs(amount),
+      note: prettyMerchant(desc) || desc, rawNote: desc,
       type: amount < 0 ? "expense" : "income",
-      suggestedCategory: applyRules(rules, desc),
+      suggestedCategory: applyRules(rules, desc, prettyMerchant(desc)),
       importKey: key,
     });
   }
@@ -628,6 +629,212 @@ function portfolioBreakdown(holdings, priceCache) {
   return { rows, total };
 }
 
+/* ------------------------------ merchants ---------------------------------- */
+// Canonical grouping key for a merchant: lowercase, processor prefixes and
+// store/transaction numbers stripped, first three meaningful tokens.
+const MERCHANT_PREFIX_RE = /^(sq ?\*|tst ?\*|py ?\*|paypal ?\*?|pp ?\*|amzn mktp|amazon\.com\*?|pos debit[ -]*|debit card purchase[ -]*|ach debit[ -]*|checkcard[ -]*|visa dda pur[ -]*)/i;
+function merchantKey(desc) {
+  let s = String(desc || "").toLowerCase().trim();
+  s = s.replace(MERCHANT_PREFIX_RE, "");
+  s = s.replace(/[#*]\s*\w+/g, " ");           // "#4821", "*XYZ12"
+  s = s.replace(/\b\d{3,}\b/g, " ");            // long digit runs (store/txn ids)
+  s = s.replace(/[^a-z&' ]/g, " ").replace(/\s+/g, " ").trim();
+  return s.split(" ").slice(0, 3).join(" ");
+}
+// Human-friendly merchant name from a raw bank descriptor.
+function prettyMerchant(desc) {
+  const key = merchantKey(desc);
+  if (!key) return String(desc || "").trim();
+  return key.replace(/\b[a-z]/g, c => c.toUpperCase());
+}
+
+/* ------------------------------ recurring detection ------------------------ */
+const CADENCES = [
+  { id: "weekly",    label: "weekly",    min: 6,   max: 8,   perMonth: 52 / 12, minCount: 3 },
+  { id: "biweekly",  label: "every 2 weeks", min: 12, max: 16, perMonth: 26 / 12, minCount: 3 },
+  { id: "monthly",   label: "monthly",   min: 26,  max: 35,  perMonth: 1,       minCount: 2 },
+  { id: "quarterly", label: "quarterly", min: 80,  max: 100, perMonth: 1 / 3,   minCount: 2 },
+  { id: "annual",    label: "yearly",    min: 350, max: 380, perMonth: 1 / 12,  minCount: 2 },
+];
+function median(nums) {
+  const s = nums.slice().sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+// Finds subscription-like charges: same merchant, similar amount, regular
+// interval. Bill-linked transactions are excluded (already tracked).
+function detectRecurring(transactions, ignoredKeys) {
+  const ignored = new Set(ignoredKeys || []);
+  const groups = new Map();
+  for (const t of transactions) {
+    if (t.type !== "expense" || t.fixedBillId) continue;
+    const key = merchantKey(t.rawNote || t.note);
+    if (!key || ignored.has(key)) continue;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(t);
+  }
+  const out = [];
+  for (const [key, txns] of groups) {
+    if (txns.length < 2) continue;
+    const sorted = txns.slice().sort((a, b) => (a.date < b.date ? -1 : 1));
+    const gaps = [];
+    for (let i = 1; i < sorted.length; i++) gaps.push(daysBetween(sorted[i - 1].date, sorted[i].date));
+    const gap = median(gaps);
+    const cadence = CADENCES.find(c => gap >= c.min && gap <= c.max);
+    if (!cadence || sorted.length < cadence.minCount) continue;
+    // gaps must be reasonably regular (every gap within the cadence window ±40%)
+    if (!gaps.every(g => g >= cadence.min * 0.6 && g <= cadence.max * 1.4)) continue;
+    const amounts = sorted.map(t => t.amount);
+    const latest = amounts[amounts.length - 1];
+    const priorMedian = amounts.length > 1 ? median(amounts.slice(0, -1)) : latest;
+    if (Math.abs(latest - priorMedian) > priorMedian * 0.3) continue; // amounts don't cluster
+    const last = sorted[sorted.length - 1];
+    // next renewal follows the cadence, not the raw gap: monthly-ish charges
+    // land on the same day-of-month (clamped), week-based ones step by days
+    const monthsAhead = { monthly: 1, quarterly: 3, annual: 12 }[cadence.id];
+    const nextDate = monthsAhead
+      ? (() => {
+          const mk = addMonths(monthKey(last.date), monthsAhead);
+          return `${mk}-${String(Math.min(+last.date.slice(8, 10), daysInMonth(mk))).padStart(2, "0")}`;
+        })()
+      : addDaysKey(last.date, cadence.id === "weekly" ? 7 : 14);
+    out.push({
+      key,
+      name: prettyMerchant(last.rawNote || last.note),
+      amount: latest,
+      prevAmount: priorMedian,
+      priceIncreased: latest > priorMedian * 1.02,
+      cadence: cadence.id,
+      cadenceLabel: cadence.label,
+      lastDate: last.date,
+      nextDate,
+      monthlyCost: latest * cadence.perMonth,
+      count: sorted.length,
+      category: last.category || null,
+    });
+  }
+  return out.sort((a, b) => b.monthlyCost - a.monthlyCost);
+}
+
+/* ------------------------------ cash-flow forecast ------------------------- */
+// Average daily variable spend over the trailing 60 days, excluding known
+// recurring merchants (they're forecast as discrete events instead).
+function avgDailyVariableSpend(transactions, excludeKeys, fromKey) {
+  const exclude = new Set(excludeKeys || []);
+  const end = fromKey || todayKey();
+  const start = addDaysKey(end, -60);
+  let total = 0;
+  for (const t of transactions) {
+    if (t.type !== "expense" || t.source === "fixed") continue;
+    if (t.date < start || t.date >= end) continue;
+    if (exclude.has(merchantKey(t.rawNote || t.note))) continue;
+    total += t.amount;
+  }
+  return total / 60;
+}
+// Day-by-day projection for `key` (the current month): actual cumulative net
+// so far, then expected paydays, unpaid bills, subscription renewals, and
+// average daily variable spend through month end.
+function forecastMonth({ transactions, bills, income, recurringList, key, today }) {
+  const tKey = today || todayKey();
+  const days = daysInMonth(key);
+  const monthTxns = txnsInMonth(transactions, key);
+  const dailyAvg = avgDailyVariableSpend(transactions, (recurringList || []).map(r => r.key), tKey);
+
+  const events = [];
+  const todayDay = monthKey(tKey) === key ? +tKey.slice(8, 10) : days;
+  // expected paydays after today
+  if (income && income.payAnchor && income.expectedIncome) {
+    for (const p of nextPaydays(income.payAnchor, income.incomeFrequency, addDaysKey(tKey, 1), 4)) {
+      if (monthKey(p) === key) events.push({ date: p, label: "Payday", amount: income.expectedIncome, kind: "payday" });
+    }
+  }
+  // unpaid active bills with due days still ahead
+  for (const b of bills || []) {
+    if (b.active === false) continue;
+    const due = Math.min(b.dueDay || 1, days);
+    if (due <= todayDay) continue;
+    if (monthTxns.some(t => t.fixedBillId === b.id)) continue;
+    events.push({ date: `${key}-${String(due).padStart(2, "0")}`, label: b.name, amount: -b.amount, kind: "bill" });
+  }
+  // subscription renewals in the rest of the month
+  for (const r of recurringList || []) {
+    if (monthKey(r.nextDate) === key && +r.nextDate.slice(8, 10) > todayDay) {
+      events.push({ date: r.nextDate, label: r.name, amount: -r.amount, kind: "renewal" });
+    }
+  }
+
+  // cumulative curve: actuals to today, projection afterwards
+  const series = [];
+  let cum = 0;
+  for (let d = 1; d <= days; d++) {
+    const dk = `${key}-${String(d).padStart(2, "0")}`;
+    if (d <= todayDay) {
+      for (const t of monthTxns) {
+        if (t.date === dk) cum += t.type === "income" ? t.amount : -t.amount;
+      }
+    } else {
+      cum -= dailyAvg;
+      for (const e of events) if (e.date === dk) cum += e.amount;
+    }
+    series.push(Math.round(cum));
+  }
+
+  // "safe to spend": what's left of expected income after bills +
+  // subscriptions + what's already been spent, spread over remaining days
+  const expectedIncome = income && income.expectedIncome
+    ? Math.round(toMonthlyAmount(income.expectedIncome, income.incomeFrequency || "monthly")) : 0;
+  const billsTotal = activeBillsTotal(bills || []);
+  const subsMonthly = (recurringList || []).reduce((a, r) => a + r.monthlyCost, 0);
+  const variableSpentSoFar = monthTxns
+    .filter(t => t.type === "expense" && t.source !== "fixed")
+    .reduce((a, t) => a + t.amount, 0);
+  const daysLeft = Math.max(1, days - todayDay + 1);
+  const safePerDay = expectedIncome > 0
+    ? Math.max(0, (expectedIncome - billsTotal - subsMonthly - variableSpentSoFar) / daysLeft)
+    : null;
+
+  return { series, events: events.sort((a, b) => (a.date < b.date ? -1 : 1)), projectedNet: series[series.length - 1], safePerDay, todayDay };
+}
+
+/* ------------------------------ insights ----------------------------------- */
+// Categories pacing well above their own 3-month average this month.
+function spendingAnomalies(transactions, key, today) {
+  const tKey = today || todayKey();
+  const dayOfMonth = monthKey(tKey) === key ? +tKey.slice(8, 10) : daysInMonth(key);
+  const frac = Math.max(0.15, dayOfMonth / daysInMonth(key)); // early-month noise guard
+  const out = [];
+  const priorKeys = lastNMonthKeys(4, key).slice(0, 3);
+  for (const c of EXPENSE_CATEGORIES) {
+    const activePrior = priorKeys.filter(k => txnsInMonth(transactions, k).length > 0);
+    if (activePrior.length < 2) continue;
+    const avg = activePrior.reduce((a, k) => a + categorySpend(transactions, k, c.id), 0) / activePrior.length;
+    if (avg < 10) continue;
+    const spent = categorySpend(transactions, key, c.id);
+    const pace = spent / frac;
+    // require real dollars, not just extrapolation: actual spend must already
+    // exceed the pro-rated expectation by $25+ (keeps a lone early-month
+    // subscription charge from reading as a 500% blowout)
+    if (pace > avg * 1.3 && spent >= 25 && spent - avg * frac > 25) {
+      out.push({ category: c, pacePct: Math.round(((pace - avg) / avg) * 100), spent, avg: Math.round(avg) });
+    }
+  }
+  return out.sort((a, b) => b.pacePct - a.pacePct).slice(0, 2);
+}
+// Biggest merchants of the month by total spend.
+function topMerchants(transactions, key, n) {
+  const groups = new Map();
+  for (const t of txnsInMonth(transactions, key)) {
+    if (t.type !== "expense") continue;
+    const mk = merchantKey(t.rawNote || t.note) || "(no description)";
+    const g = groups.get(mk) || { key: mk, name: prettyMerchant(t.rawNote || t.note) || "(no description)", total: 0, count: 0 };
+    g.total += t.amount;
+    g.count++;
+    groups.set(mk, g);
+  }
+  return [...groups.values()].sort((a, b) => b.total - a.total).slice(0, n || 5);
+}
+
 /* ------------------------------ bank sync (SimpleFIN) --------------------- */
 // Maps a SimpleFIN /accounts response into importable transactions. Pending
 // transactions are skipped (they change/disappear); dedupe via bankId.
@@ -656,8 +863,8 @@ function mapSimplefinTransactions(accountsResponse, existingBankIds, rules) {
         date: dateKey(new Date((t.transacted_at || t.posted) * 1000)),
         amount: Math.abs(amount),
         type: amount < 0 ? "expense" : "income",
-        note: desc,
-        suggestedCategory: applyRules(rules, t.payee, t.description),
+        note: prettyMerchant(t.payee || t.description) || desc, rawNote: desc,
+        suggestedCategory: applyRules(rules, t.payee, t.description, prettyMerchant(t.payee || t.description)),
         bankId, accountId: acct.id, inbox: true,
       });
     }
@@ -745,5 +952,7 @@ if (typeof module !== "undefined") {
     applyRules, parseCSV, detectCSVColumns, guessDateFormat, parseCSVDate,
     parseCSVAmount, normalizeImportDesc, txnImportKey, mapCSVRows,
     mapSimplefinTransactions, rolloverCarry,
+    merchantKey, prettyMerchant, detectRecurring, avgDailyVariableSpend,
+    forecastMonth, spendingAnomalies, topMerchants,
   };
 }

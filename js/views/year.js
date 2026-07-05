@@ -56,6 +56,18 @@ function renderYear() {
         Toughest: <strong>${fmtMonth(worst.key)}</strong> (${fmtMoneySigned(worst.net)})</p>
     </div>
 
+    ${(() => {
+      if (totalIncome <= 0 || !catTotals.length) return "";
+      const top = catTotals.slice(0, 5);
+      const otherV = catTotals.slice(5).reduce((a, x) => a + x.v, 0);
+      const targets = top.map((x, i) => ({ name: esc(x.c.name), value: x.v, cls: `c${i + 1}` }));
+      if (otherV > 0) targets.push({ name: "Other", value: otherV, cls: "c6" });
+      if (totalIncome > totalSpend) targets.push({ name: "Saved", value: totalIncome - totalSpend, cls: "saved" });
+      return `<div class="card">
+        <div class="card-label">Where the year's income went</div>
+        ${flowChart(`Income ${fmtMoney(totalIncome)}`, Math.max(totalIncome, totalSpend), targets)}
+      </div>`;
+    })()}
     <div class="card">
       <div class="card-label">Where the year went</div>
       ${catTotals.slice(0, 10).map((x, i) => `<div class="vol-row">

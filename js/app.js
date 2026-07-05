@@ -13,6 +13,7 @@ const ROUTES = {
   invest:     { render: renderInvest,     wire: wireInvest,     tab: "invest" },
   inbox:      { render: renderInbox,      wire: wireInbox,      tab: "activity" },
   year:       { render: renderYear,       wire: wireYear,       tab: "home" },
+  calendar:   { render: renderCalendar,   wire: wireCalendar,   tab: "home" },
   settings:   { render: renderSettings,   wire: wireSettings,   tab: null },
   welcome:    { render: renderOnboarding, wire: wireOnboarding, tab: null },
 };
