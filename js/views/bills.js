@@ -33,6 +33,7 @@ function billsSegmentHTML() {
       <div class="card-label">${fmtMonth(key)} · ${paidCount}/${activeCount} paid · ${fmtMoney(total)}/mo total</div>
       ${bills.length ? rows : emptyStateHTML("calendar", "No bills yet. Add rent, subscriptions, insurance —<br>set them once, check them off monthly.")}
     </div>
+    ${subscriptionsCardHTML()}
     <div class="card">
       <div class="card-label">Add a bill</div>
       <input id="bill-name" class="input" placeholder="Name (e.g. Rent, Netflix)" />
@@ -48,7 +49,41 @@ function billsSegmentHTML() {
   `;
 }
 
+/* ---- subscription radar: recurring charges detected from history ---- */
+function subscriptionsCardHTML() {
+  const subs = detectedSubscriptions();
+  if (!subs.length) return "";
+  const monthly = subs.reduce((a, r) => a + r.monthlyCost, 0);
+  return `<div class="card">
+    <div class="card-label">Detected subscriptions · ${fmtMoney(monthly)}/mo</div>
+    <p class="row-sub" style="margin-bottom:6px">Recurring charges spotted in your history. Track one as a bill to get due-day reminders and autopay, or ignore it.</p>
+    ${subs.map((r, i) => `<div class="row">
+      <span class="row-tile">${svgIcon("repeat")}</span>
+      <span class="row-main">
+        <span class="row-title">${esc(r.name)}${r.priceIncreased ? ` <span class="badge warn-badge">↑ was ${fmtMoney(r.prevAmount)}</span>` : ""}</span>
+        <span class="row-sub">${r.cadenceLabel} · next ~${fmtDateShort(r.nextDate)} · seen ${r.count}×</span>
+      </span>
+      <span class="row-end"><span class="money">${fmtMoney(r.amount)}</span></span>
+    </div>
+    <div class="chips" style="margin:-4px 0 10px 50px">
+      <button class="chip" data-sub-track="${i}">Track as bill</button>
+      <button class="chip" data-sub-ignore="${esc(r.key)}">Ignore</button>
+    </div>`).join("")}
+  </div>`;
+}
+
 function wireBillsSegment() {
+  const subs = detectedSubscriptions();
+  $$("[data-sub-track]").forEach(b => b.addEventListener("click", () => {
+    const rec = subs[+b.dataset.subTrack];
+    if (!rec) return;
+    trackRecurringAsBill(rec);
+    render(); toast(`${rec.name} is now a tracked bill ✓`);
+  }));
+  $$("[data-sub-ignore]").forEach(b => b.addEventListener("click", () => {
+    ignoreRecurring(b.dataset.subIgnore);
+    render(); toast("Ignored — it won't be suggested again");
+  }));
   $("#bill-add")?.addEventListener("click", () => {
     const name = $("#bill-name").value.trim();
     const amount = parseFloat($("#bill-amount").value);

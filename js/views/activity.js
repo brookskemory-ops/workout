@@ -10,17 +10,20 @@ let actSelectMode = false;
 const actSelected = new Set();
 
 function activityFilteredTxns(key) {
-  let txns = txnsInMonth(state.transactions, key);
+  const q = actSearch.trim().toLowerCase();
+  // a search spans ALL months (capped); browsing stays within the viewed month
+  let txns = q ? state.transactions.slice() : txnsInMonth(state.transactions, key);
   if (actType !== "all") txns = txns.filter(t => t.type === actType);
   if (actCategory !== "all") txns = txns.filter(t => t.category === actCategory);
-  const q = actSearch.trim().toLowerCase();
   if (q) {
     txns = txns.filter(t =>
       (t.note || "").toLowerCase().includes(q) ||
+      (t.rawNote || "").toLowerCase().includes(q) ||
       catForTxn(t).name.toLowerCase().includes(q) ||
       String(t.amount).includes(q));
   }
-  return txns.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  txns.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  return q ? txns.slice(0, 100) : txns;
 }
 
 function activityListHTML(key) {
@@ -37,7 +40,9 @@ function activityListHTML(key) {
     if (!byDay.has(d)) byDay.set(d, []);
     byDay.get(d).push(t);
   }
-  let html = "";
+  let html = actSearch.trim()
+    ? `<p class="row-sub" style="margin-bottom:4px">Searching all months · ${txns.length}${txns.length === 100 ? "+" : ""} result${txns.length === 1 ? "" : "s"}</p>`
+    : "";
   for (const [day, list] of byDay) {
     const dayNet = list.reduce((a, t) => a + (t.type === "income" ? t.amount : -t.amount), 0);
     html += `<div class="day-head"><span>${fmtDay(day)}</span><span class="money">${fmtMoneySigned(dayNet)}</span></div>`;
@@ -177,8 +182,13 @@ function showTxnEditModal(t) {
     <label class="field-label">Note</label>
     <input id="et-note" class="input" value="${esc(t.note || "")}" placeholder="Note (optional)" />
     <button id="et-save" class="btn primary block">Save changes</button>
-    ${!isFixed ? `<button id="et-delete" class="btn danger block">Delete transaction</button>` : ""}
+    ${!isFixed ? `<button id="et-split" class="btn block">Split across categories…</button>
+    <button id="et-delete" class="btn danger block">Delete transaction</button>` : ""}
   `, (root) => {
+    $("#et-split", root)?.addEventListener("click", () => {
+      closeOverlay(root);
+      setTimeout(() => showSplitModal(t), 200);
+    });
     $("#et-save", root).addEventListener("click", () => {
       const amount = parseFloat($("#et-amount", root).value);
       if (isNaN(amount) || amount <= 0) { toast("Enter a valid amount"); return; }
@@ -196,5 +206,53 @@ function showTxnEditModal(t) {
         closeOverlay(root); render(); toastUndo("Transaction deleted");
       }
     });
+  });
+}
+
+/* ------------------------------ split modal --------------------------------- */
+// Divide one transaction across categories; parts must add up exactly.
+function showSplitModal(t) {
+  const cats = allExpenseCategories();
+  const half = Math.round((t.amount / 2) * 100) / 100;
+  let rows = [
+    { category: t.category || "misc", amount: half },
+    { category: t.category || "misc", amount: Math.round((t.amount - half) * 100) / 100 },
+  ];
+  const rowsHTML = () => rows.map((r, i) => `
+    <div class="input-pair" style="margin-bottom:10px">
+      <select class="select split-cat" data-i="${i}" style="margin-bottom:0">${categoryOptionsHTML(cats, r.category)}</select>
+      <input class="input split-amt" data-i="${i}" inputmode="decimal" value="${r.amount}" style="margin-bottom:0" />
+    </div>`).join("");
+  const remainder = () => Math.round((t.amount - rows.reduce((a, r) => a + (parseFloat(r.amount) || 0), 0)) * 100) / 100;
+
+  modal(`
+    <h2>Split ${fmtMoney(t.amount)}</h2>
+    <p class="row-sub" style="margin-bottom:12px">${esc(t.note || "Transaction")} · ${fmtDateShort(t.date)}</p>
+    <div id="split-rows">${rowsHTML()}</div>
+    <button id="split-add-row" class="btn ghost small block">+ Another part</button>
+    <div id="split-remainder" class="row-sub money" style="margin:8px 0"></div>
+    <button id="split-save" class="btn primary block">Split it</button>
+  `, (root) => {
+    const refresh = () => {
+      const rem = remainder();
+      const el = $("#split-remainder", root);
+      el.textContent = rem === 0 ? "Adds up ✓" : rem > 0 ? `${fmtMoney(rem)} left to assign` : `${fmtMoney(-rem)} over the original`;
+      el.className = "row-sub money " + (rem === 0 ? "pos" : "warn");
+      $("#split-save", root).disabled = rem !== 0 || rows.some(r => !(parseFloat(r.amount) > 0));
+    };
+    const wireRows = () => {
+      $$(".split-cat", root).forEach(sel => sel.addEventListener("change", () => { rows[+sel.dataset.i].category = sel.value; }));
+      $$(".split-amt", root).forEach(inp => inp.addEventListener("input", () => { rows[+inp.dataset.i].amount = parseFloat(inp.value) || 0; refresh(); }));
+    };
+    $("#split-add-row", root).addEventListener("click", () => {
+      rows.push({ category: t.category || "misc", amount: 0 });
+      patch("#split-rows", rowsHTML());
+      wireRows(); refresh();
+    });
+    $("#split-save", root).addEventListener("click", () => {
+      splitTransaction(t.id, rows.map(r => ({ category: r.category, amount: parseFloat(r.amount) })));
+      closeOverlay(root); render(); toastUndo("Transaction split");
+    });
+    wireRows(); refresh();
   });
 }

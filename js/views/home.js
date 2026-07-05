@@ -51,6 +51,76 @@ function backupNudgeHTML() {
   </div>`;
 }
 
+function renewalNudgesHTML() {
+  if (getViewedMonth() !== currentMonthKey()) return "";
+  const today = todayKey();
+  const soon = detectedSubscriptions()
+    .filter(r => daysBetween(today, r.nextDate) >= 0 && daysBetween(today, r.nextDate) <= 3)
+    .slice(0, 2);
+  return soon.map(r => `<div class="nudge warn">
+    <div class="nudge-body"><strong>${esc(r.name)}</strong> (~${fmtMoney(r.amount)}) renews ${r.nextDate === today ? "today" : fmtDateShort(r.nextDate)}</div>
+    <button class="btn small" data-nav="plan-bills">Review</button>
+  </div>`).join("");
+}
+
+function anomalyNudgesHTML(key) {
+  return spendingAnomalies(state.transactions, key).map(a => `<div class="nudge warn">
+    <div class="nudge-body"><strong>${esc(a.category.name)}</strong> is pacing ${a.pacePct}% above your recent average (${fmtMoney(a.spent)} so far vs ~${fmtMoney(a.avg)}/mo).</div>
+  </div>`).join("");
+}
+
+/* ------------------------------ forecast ----------------------------------- */
+function forecastCardHTML(key) {
+  if (key !== currentMonthKey()) return "";
+  const fc = forecastMonth({
+    transactions: state.transactions, bills: state.bills, income: state.income,
+    recurringList: detectedSubscriptions(), key,
+  });
+  if (!fc.series.some(v => v !== 0)) return "";
+  return `<button class="card" data-nav="calendar">
+    <div class="card-label">This month's trajectory</div>
+    ${areaLine(fc.series, { baseline: 0, labels: ["1", `today (${fc.todayDay})`, String(fc.series.length)] })}
+    <div class="hero-meta">
+      <span class="money ${fc.projectedNet >= 0 ? "pos" : "neg"}">Projected month end: ${fmtMoneySigned(fc.projectedNet)}</span>
+      ${fc.safePerDay != null ? `<span class="money">Safe to spend: ~${fmtMoney(fc.safePerDay)}/day</span>` : ""}
+    </div>
+    <div class="row-sub" style="margin-top:6px">Actuals so far, then expected paydays, bills, renewals, and your average daily spend. Tap for the calendar.</div>
+  </button>`;
+}
+
+function topMerchantsCardHTML(key) {
+  const top = topMerchants(state.transactions, key, 5);
+  if (top.length < 2) return "";
+  const max = top[0].total;
+  return `<div class="card">
+    <div class="card-label">Top merchants · ${fmtMonth(key)}</div>
+    ${top.map((m, i) => `<div class="vol-row">
+      <span class="vol-label">${esc(m.name)}</span>
+      ${barHTML((m.total / max) * 100, `c${(i % 6) + 1}`)}
+      <span class="vol-num money">${fmtMoney(m.total)}${m.count > 1 ? ` · ${m.count}×` : ""}</span>
+    </div>`).join("")}
+  </div>`;
+}
+
+function incomeFlowCardHTML(key) {
+  const t = monthTotals(state.transactions, state.bills, key);
+  if (t.income <= 0) return "";
+  const spend = allExpenseCategories()
+    .map(c => ({ c, v: categorySpend(state.transactions, key, c.id) }))
+    .filter(x => x.v > 0).sort((a, b) => b.v - a.v);
+  if (!spend.length) return "";
+  const top = spend.slice(0, 5);
+  const otherV = spend.slice(5).reduce((a, x) => a + x.v, 0);
+  const targets = top.map((x, i) => ({ name: esc(x.c.name), value: x.v, cls: `c${i + 1}` }));
+  if (otherV > 0) targets.push({ name: "Other", value: otherV, cls: "c6" });
+  const spent = spend.reduce((a, x) => a + x.v, 0);
+  if (t.income > spent) targets.push({ name: "Saved", value: t.income - spent, cls: "saved" });
+  return `<div class="card">
+    <div class="card-label">Where income went · ${fmtMonth(key)}</div>
+    ${flowChart(`Income ${fmtMoney(t.income)}`, Math.max(t.income, spent), targets)}
+  </div>`;
+}
+
 /* ------------------------------ cards -------------------------------------- */
 function heroCardHTML(key) {
   const t = monthTotals(state.transactions, state.bills, key);
@@ -162,6 +232,15 @@ function categoryTrendHTML(key) {
       <span class="vol-num money">${fmtMoney(vals[i])}</span>
     </div>`).join("")}
     ${planned ? `<div class="row-sub">planned: ${fmtMoney(planned)}/mo — red bars ran over</div>` : ""}
+    ${(() => {
+      const prior = keys.slice(0, -1).filter(k => vals[keys.indexOf(k)] > 0);
+      if (prior.length < 2) return "";
+      const avg = prior.reduce((a, k) => a + vals[keys.indexOf(k)], 0) / prior.length;
+      const cur = vals[vals.length - 1];
+      if (!avg || !cur) return "";
+      const delta = Math.round(((cur - avg) / avg) * 100);
+      return `<div class="row-sub money ${delta > 15 ? "warn" : delta < -15 ? "pos" : ""}">this month: ${delta >= 0 ? "+" : ""}${delta}% vs your ${prior.length}-month average</div>`;
+    })()}
   </div>`;
 }
 
@@ -225,11 +304,16 @@ function renderHome() {
     ${inboxNudgeHTML()}
     ${backupNudgeHTML()}
     ${billNudgesHTML()}
+    ${renewalNudgesHTML()}
     ${paydayNudgeHTML()}
+    ${anomalyNudgesHTML(key)}
     ${heroCardHTML(key)}
+    ${forecastCardHTML(key)}
     ${budgetAlertsHTML(key)}
     ${netWorthCardHTML()}
     ${spendingDonutHTML(key)}
+    ${incomeFlowCardHTML(key)}
+    ${topMerchantsCardHTML(key)}
     ${cashflowTrendHTML(key)}
     ${categoryTrendHTML(key)}
     <button class="card" data-nav="year"><div class="card-label">${svgIcon("calendar")} Year in Review — 12-month totals & trends</div></button>

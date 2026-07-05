@@ -50,11 +50,25 @@ back up via JSON. Rules of thumb, never financial advice.
 - **Light theme** + system-follow, **haptics**, **PWA shortcuts**
   (long-press icon → Log expense/income), **Year in Review** report
 
+## ✅ Shipped — Keel v3 (competitive parity pass)
+Benchmarked against Rocket Money, Monarch, Copilot, and YNAB:
+- **Subscription radar** — recurring-charge detection from history (cadence
+  classification, amount clustering, price-increase flags, next-renewal
+  dates), renewal nudges, one-tap promote-to-bill or ignore
+- **Cash-flow forecast** — month trajectory curve (actuals + expected
+  paydays/bills/renewals + avg daily spend), projected month end, "safe to
+  spend $X/day", and a money **calendar** view
+- **Deeper insights** — unusual-spending alerts (pace vs your own average),
+  top merchants, income→categories flow chart (month + year), category
+  month-over-month deltas
+- **Power tools** — split transactions across categories (undo-able),
+  all-months search, `#hashtag` note tags, automatic merchant-name cleanup
+  on imports (raw descriptor preserved for search/rules)
+
 ## ⏳ Ideas for future phases
 - Recurring income beyond paycheck (rental, side gigs)
 - Multi-currency / currency conversion for holdings
 - Custom category icons & colors
 - Invest: more coins via CoinGecko search, dividend tracking, benchmarks,
   FIRE/compound-growth projector
-- Smart insights ("dining is 40% above your average this month")
 - Split the old fitness app into its own repo/PWA reading `monsterMode.v1`

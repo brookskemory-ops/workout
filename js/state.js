@@ -44,6 +44,7 @@ const DEFAULT_STATE = {
     snapshots: [],       // [{date:'YYYY-MM-DD', total, netWorth}] max 1/day, capped
   },
   rules: [],             // [{id, match, categoryId, enabled}] auto-categorization
+  recurring: { ignored: [] }, // merchantKeys dismissed from subscription detection
   bank: {
     accessUrl: null,     // SimpleFIN access URL (device-only; contains credentials)
     accounts: [],        // [{id, name, org, balance, balanceDate}]
@@ -487,6 +488,51 @@ function shouldShowRecap() {
 }
 function markRecapShown() {
   mutate(s => { s.ui.lastRecapMonth = currentMonthKey(); s.ui.autoLog = []; });
+}
+
+/* ------------------------------ recurring / subscriptions ------------------ */
+function detectedSubscriptions() {
+  return detectRecurring(state.transactions, state.recurring.ignored);
+}
+function ignoreRecurring(key) {
+  mutate(s => { if (!s.recurring.ignored.includes(key)) s.recurring.ignored.push(key); });
+}
+// Promote a detected subscription to a tracked Bill; the merchant key is
+// ignored afterwards so it doesn't double-appear.
+function trackRecurringAsBill(rec) {
+  mutate(s => {
+    s.bills.push({
+      id: uid(), name: rec.name, amount: Math.round(rec.amount * 100) / 100,
+      category: rec.category || "subscriptions",
+      dueDay: Math.min(+rec.nextDate.slice(8, 10), 28),
+      active: true,
+    });
+    if (!s.recurring.ignored.includes(rec.key)) s.recurring.ignored.push(rec.key);
+  });
+}
+
+/* ------------------------------ split transactions ------------------------- */
+// Replaces one transaction with N parts (same date/type/source, shared
+// splitId). One undo restores the original and removes the parts.
+function splitTransaction(id, parts) {
+  mutate(s => {
+    const idx = s.transactions.findIndex(t => t.id === id);
+    if (idx < 0 || parts.length < 2) return;
+    const original = s.transactions[idx];
+    const splitId = uid();
+    const created = parts.map(p => ({
+      ...original,
+      id: uid(), splitId,
+      amount: p.amount, category: p.category,
+      note: p.note || original.note,
+      inbox: false,
+    }));
+    s.transactions.splice(idx, 1, ...created);
+    registerUndo(st => {
+      st.transactions = st.transactions.filter(t => t.splitId !== splitId);
+      st.transactions.push(original);
+    });
+  });
 }
 
 /* ------------------------------ rules -------------------------------------- */

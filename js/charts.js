@@ -75,6 +75,54 @@ function sparkline(values, { w = 120, h = 34, cls = "" } = {}) {
   </svg>`;
 }
 
+/* ------------------------------ flow (sankey-ish) -------------------------- */
+// Ribbon geometry for a two-column flow: one source of `total` fanning out to
+// `targets` [{value}]. Returns per-target left/right y-spans in a box of
+// height h with `gap` px between right-hand nodes.
+function flowSpans(total, targets, h, gap = 6) {
+  const sum = Math.max(total, targets.reduce((a, t) => a + t.value, 0)) || 1;
+  const usable = h - gap * Math.max(0, targets.length - 1);
+  let yL = 0, yR = 0;
+  return targets.map(t => {
+    const size = (t.value / sum) * usable;
+    const span = { y0L: yL, y1L: yL + size, y0R: yR, y1R: yR + size };
+    yL += size;
+    yR += size + gap;
+    return span;
+  });
+}
+// Income → categories flow. targets: [{name, value, cls}]. Left node is the
+// source total; a "Saved" target should be appended by the caller when
+// income exceeds spending.
+function flowChart(sourceLabel, total, targets, { w = 340, h = null } = {}) {
+  if (!targets.length || total <= 0) return `<div class="chart-empty">Not enough data yet.</div>`;
+  const height = h || Math.max(120, Math.min(230, targets.length * 34));
+  const spans = flowSpans(total, targets, height);
+  const xL = 6, xR = w - 116, node = 7;
+  const ribbons = targets.map((t, i) => {
+    const s = spans[i];
+    const c1 = xL + node + (xR - xL - node) * 0.45;
+    const c2 = xL + node + (xR - xL - node) * 0.55;
+    return `<path class="flow-ribbon ${t.cls}" d="M${xL + node},${s.y0L}
+      C${c1},${s.y0L} ${c2},${s.y0R} ${xR},${s.y0R}
+      L${xR},${s.y1R} C${c2},${s.y1R} ${c1},${s.y1L} ${xL + node},${s.y1L} Z"/>`;
+  }).join("");
+  const rightNodes = targets.map((t, i) => {
+    const s = spans[i];
+    const mid = (s.y0R + s.y1R) / 2;
+    return `<rect class="flow-node ${t.cls}" x="${xR}" y="${s.y0R}" width="${node}" height="${Math.max(2, s.y1R - s.y0R)}" rx="2"/>
+      <text class="flow-label" x="${xR + node + 6}" y="${mid + 3.5}">${t.name}</text>`;
+  }).join("");
+  return `<svg class="flow-chart" viewBox="0 0 ${w} ${height + 18}" role="img" aria-label="${sourceLabel} flow">
+    <g transform="translate(0, 4)">
+      <rect class="flow-node source" x="${xL}" y="0" width="${node}" height="${height}" rx="2"/>
+      ${ribbons}
+      ${rightNodes}
+    </g>
+    <text class="flow-label" x="${xL}" y="${height + 16}">${sourceLabel}</text>
+  </svg>`;
+}
+
 if (typeof module !== "undefined") {
-  module.exports = { donutArcs, donut, linePoints, areaLine, sparkline };
+  module.exports = { donutArcs, donut, linePoints, areaLine, sparkline, flowSpans, flowChart };
 }
