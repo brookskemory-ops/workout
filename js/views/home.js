@@ -35,7 +35,7 @@ function paydayNudgeHTML() {
   const when = near === today ? "today" : daysBetween(today, near) > 0 ? fmtDateShort(near) : `${-daysBetween(today, near)}d ago`;
   return `<div class="nudge pos">
     <div class="nudge-body"><strong>Payday ${when}</strong> · log your ${fmtMoney(expectedIncome)} paycheck?</div>
-    <button class="btn small" data-log-payday="${near}">＋ Log it</button>
+    <button class="btn small" data-log-payday="${near}">Log it</button>
   </div>`;
 }
 
@@ -59,9 +59,9 @@ function heroCardHTML(key) {
     <div class="card-label">Net cash flow · ${fmtMonth(key)}</div>
     <div class="hero-amount money ${cls}">${fmtMoneySigned(t.net)}</div>
     <div class="hero-meta">
-      <span class="money">＋ ${fmtMoney(t.income)} income</span>
-      <span class="money">▤ ${fmtMoney(t.fixedExpected)} bills</span>
-      <span class="money">− ${fmtMoney(t.variable)} spending</span>
+      <span class="money"><i class="dot pos"></i>${fmtMoney(t.income)} income</span>
+      <span class="money"><i class="dot fixed"></i>${fmtMoney(t.fixedExpected)} bills</span>
+      <span class="money"><i class="dot neg"></i>${fmtMoney(t.variable)} spending</span>
     </div>
   </div>`;
 }
@@ -76,7 +76,7 @@ function budgetAlertsHTML(key) {
   return `<button class="card" data-nav="plan">
     <div class="card-label">Budgets running hot</div>
     ${hot.map(({ c, bs }) => `<div class="vol-row">
-      <span class="vol-label">${c.icon} ${esc(c.name)}</span>
+      <span class="vol-label">${catIconHTML(c)} ${esc(c.name)}</span>
       ${barHTML(bs.pct, statusCls(bs.status))}
       <span class="vol-num money ${statusCls(bs.status)}">${fmtMoney(bs.spent)} / ${fmtMoney(bs.target)}</span>
     </div>`).join("")}
@@ -103,7 +103,7 @@ function inboxNudgeHTML() {
   const n = inboxTxns().length;
   if (!n) return "";
   return `<button class="nudge" data-nav="inbox" style="width:100%;text-align:left;cursor:pointer">
-    <div class="nudge-body">📥 <strong>${n}</strong> new transaction${n > 1 ? "s" : ""} to sort into categories</div>
+    <div class="nudge-body">${svgIcon("inbox")} <strong>${n}</strong> new transaction${n > 1 ? "s" : ""} to sort into categories</div>
     <span class="btn small">Sort</span>
   </button>`;
 }
@@ -205,9 +205,9 @@ function maybeShowMonthlyRecap() {
       ${spend.map(x => `<div class="vol-row"><span class="vol-label">${x.c.icon} ${esc(x.c.name)}</span>
         <span class="vol-num money">${fmtMoney(x.v)}</span></div>`).join("")}` : ""}
     ${budgeted.length ? `<div class="card-label" style="margin-top:10px">Budgets</div>
-      <p class="row-sub">${met}/${budgeted.length} stayed under target${met === budgeted.length ? " — clean sweep 🏆" : ""}</p>` : ""}
+      <p class="row-sub">${met}/${budgeted.length} stayed under target${met === budgeted.length ? " — clean sweep" : ""}</p>` : ""}
     ${autoLogs.length ? `<div class="card-label" style="margin-top:10px">Done for you</div>
-      ${autoLogs.slice(-8).map(a => `<p class="row-sub">🤖 ${esc(a.label)}</p>`).join("")}` : ""}
+      ${autoLogs.slice(-8).map(a => `<p class="row-sub">${svgIcon("cpu")} ${esc(a.label)}</p>`).join("")}` : ""}
     <button class="btn primary block" style="margin-top:16px" data-recap-close>On to ${fmtMonth(currentMonthKey())} →</button>
   `, (root) => {
     if (green) launchConfetti();
@@ -232,14 +232,14 @@ function renderHome() {
     ${spendingDonutHTML(key)}
     ${cashflowTrendHTML(key)}
     ${categoryTrendHTML(key)}
-    <button class="card" data-nav="year"><div class="card-label">📆 Year in Review — 12-month totals & trends</div></button>
+    <button class="card" data-nav="year"><div class="card-label">${svgIcon("calendar")} Year in Review — 12-month totals & trends</div></button>
     ${goalTeaserHTML()}
     <div class="card">
       <div class="card-label">Recent activity</div>
       ${recent.length
         ? recent.map(t => txnRowHTML(t, false)).join("") +
           `<button class="btn ghost block" data-nav="activity" style="margin-top:10px">See all activity</button>`
-        : emptyStateHTML("🪶", "Nothing logged this month yet.<br>Tap the ＋ button to add your first transaction.")}
+        : emptyStateHTML("feather", "Nothing logged this month yet.<br>Tap the ＋ button to add your first transaction.")}
     </div>
   `;
 }

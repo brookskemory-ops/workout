@@ -9,7 +9,7 @@ function renderInbox() {
   if (!queue.length) {
     return `
       ${pageHeader("Inbox", { sub: "Sort incoming transactions" })}
-      <div class="card">${emptyStateHTML("🎉", "Inbox zero — everything's categorized.", "Back to Activity", 'data-nav="activity"')}</div>
+      <div class="card">${emptyStateHTML("check", "Inbox zero — everything's categorized.", "Back to Activity", 'data-nav="activity"')}</div>
     `;
   }
   const t = queue[0];
@@ -35,11 +35,11 @@ function renderInbox() {
 
     <div class="card">
       <div class="chips inbox-chips">
-        ${ordered.map(c => `<button class="chip inbox-chip ${c.id === suggested ? "sel" : ""}" data-inbox-cat="${c.id}">${c.icon} ${esc(c.name)}</button>`).join("")}
+        ${ordered.map(c => `<button class="chip inbox-chip ${c.id === suggested ? "sel" : ""}" data-inbox-cat="${c.id}">${catIconHTML(c)} ${esc(c.name)}</button>`).join("")}
       </div>
       <label style="display:flex;align-items:center;gap:10px;margin-top:14px;font-size:0.88rem" class="muted">
         <input type="checkbox" id="inbox-make-rule" ${suggested ? "" : "checked"} />
-        Always file <strong>"${esc(ruleTextForTxn(t))}"</strong> this way
+        <span>Always file <strong>"${esc(ruleTextForTxn(t))}"</strong> this way</span>
       </label>
     </div>
 

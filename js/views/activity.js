@@ -26,7 +26,7 @@ function activityFilteredTxns(key) {
 function activityListHTML(key) {
   const txns = activityFilteredTxns(key);
   if (!txns.length) {
-    return emptyStateHTML("🔍",
+    return emptyStateHTML("search",
       actSearch || actType !== "all" || actCategory !== "all"
         ? "Nothing matches these filters."
         : "No transactions this month.<br>Tap ＋ to log one.");
@@ -50,7 +50,7 @@ function selectableTxnRowHTML(t) {
   const cat = catForTxn(t);
   const on = actSelected.has(t.id);
   return `<button class="row txn-row ${on ? "row-selected" : ""}" data-select-txn="${t.id}">
-    <span class="row-tile" style="${on ? "background:var(--accent-soft);border-color:var(--accent)" : ""}">${on ? "✓" : cat.icon}</span>
+    <span class="row-tile" style="${on ? "background:var(--accent-soft);border-color:var(--accent)" : ""}">${on ? svgIcon("check") : catIconHTML(cat)}</span>
     <span class="row-main">
       <span class="row-title">${esc(t.note || cat.name)}</span>
       <span class="row-sub">${esc(cat.name)}</span>
@@ -83,14 +83,14 @@ function renderActivity() {
   return `
     ${pageHeader("Activity", { stepper: true })}
     ${inboxCount ? `<button class="nudge" data-nav="inbox" style="width:100%;text-align:left;cursor:pointer">
-      <div class="nudge-body">📥 <strong>${inboxCount}</strong> transaction${inboxCount > 1 ? "s" : ""} waiting to be sorted</div>
+      <div class="nudge-body">${svgIcon("inbox")} <strong>${inboxCount}</strong> transaction${inboxCount > 1 ? "s" : ""} waiting to be sorted</div>
       <span class="btn small">Sort now</span>
     </button>` : ""}
     <div class="card">
       <div class="hero-meta" style="margin:0 0 12px">
-        <span class="money pos">＋ ${fmtMoney(t.income)}</span>
-        <span class="money fixed">▤ ${fmtMoney(t.fixedPaid)} bills paid</span>
-        <span class="money neg">− ${fmtMoney(t.variable)}</span>
+        <span class="money pos"><i class="dot pos"></i>${fmtMoney(t.income)} in</span>
+        <span class="money fixed"><i class="dot fixed"></i>${fmtMoney(t.fixedPaid)} bills</span>
+        <span class="money neg"><i class="dot neg"></i>${fmtMoney(t.variable)} out</span>
         <span class="money ${t.net >= 0 ? "pos" : "neg"}">= ${fmtMoneySigned(t.net)}</span>
       </div>
       <input id="act-search" class="input" placeholder="Search notes, categories, amounts…" value="${esc(actSearch)}" autocomplete="off" />
@@ -102,8 +102,8 @@ function renderActivity() {
         ${categoryOptionsHTML(usedCats, actCategory)}
       </select>` : ""}
       <div class="chips">
-        <button class="chip" id="act-import">⇪ Import CSV</button>
-        <button class="chip ${actSelectMode ? "sel" : ""}" id="act-select">${actSelectMode ? "✕ Done selecting" : "☑ Select"}</button>
+        <button class="chip" id="act-import">${svgIcon("upload")} Import CSV</button>
+        <button class="chip ${actSelectMode ? "sel" : ""}" id="act-select">${actSelectMode ? "Done selecting" : `${svgIcon("check-square")} Select`}</button>
       </div>
     </div>
     ${bulkBarHTML()}

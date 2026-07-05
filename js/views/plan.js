@@ -80,8 +80,8 @@ function budgetOverviewHTML() {
     <div class="card-label">Left after planned spending</div>
     <div class="hero-amount money ${cls}">${capacity == null ? "—" : fmtMoney(capacity)}${pct != null ? `<span class="row-sub" style="font-size:1rem"> (${pct}%)</span>` : ""}</div>
     <div class="hero-meta">
-      <span class="money">▤ ${fmtMoney(billsOnly)} bills (unbudgeted cats)</span>
-      <span class="money">◔ ${fmtMoney(budgeted)} budgets</span>
+      <span class="money"><i class="dot fixed"></i>${fmtMoney(billsOnly)} bills (unbudgeted cats)</span>
+      <span class="money"><i class="dot c2"></i>${fmtMoney(budgeted)} budgets</span>
     </div>
     <div class="row-sub" style="margin-top:8px">${msg}</div>
     ${capacity > 0 && activeGoals.length ? `
@@ -107,7 +107,7 @@ function budgetRowHTML(c) {
 
   return `<div class="budget-row" data-budget-row="${c.id}" style="padding:12px 0;border-bottom:1px solid var(--line)">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-      <span style="font-weight:700">${c.icon} ${esc(c.name)}</span>
+      <span style="font-weight:700">${catIconHTML(c)} ${esc(c.name)}</span>
       <div class="segmented" style="--seg-count:2;margin:0;width:130px;padding:2px">
         <button class="seg-btn ${mode === "fixed" ? "active" : ""}" data-bmode="fixed" data-bcat="${c.id}">${currency()}</button>
         <button class="seg-btn ${mode === "percent" ? "active" : ""}" data-bmode="percent" data-bcat="${c.id}">%</button>

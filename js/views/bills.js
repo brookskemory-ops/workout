@@ -16,22 +16,22 @@ function billsSegmentHTML() {
     const paid = billPaidInMonth(b.id, key);
     return `<div class="row">
       <button class="row-tile ${paid ? "pos" : ""}" data-toggle-bill="${b.id}" aria-label="${paid ? "Mark unpaid" : "Mark paid"}"
-        style="${paid ? "background:var(--pos-soft);border-color:var(--pos)" : ""}">${paid ? "✓" : cat.icon}</button>
+        style="${paid ? "background:var(--pos-soft);border-color:var(--pos)" : ""}">${paid ? svgIcon("check") : catIconHTML(cat)}</button>
       <span class="row-main">
         <span class="row-title" style="${b.active === false ? "opacity:.5" : ""}">${esc(b.name)}</span>
-        <span class="row-sub">${esc(cat.name)} · due day ${b.dueDay}${b.autopay ? " · 🤖 autopay" : ""}${b.active === false ? " · paused" : ""}</span>
+        <span class="row-sub">${esc(cat.name)} · due day ${b.dueDay}${b.autopay ? ' · <span class="badge">Auto</span>' : ""}${b.active === false ? " · paused" : ""}</span>
       </span>
       <span class="row-end">
         <span class="money ${paid ? "fixed" : ""}">${fmtMoney(b.amount)}</span>
       </span>
-      <button class="icon-btn" data-edit-bill="${b.id}" aria-label="Edit ${esc(b.name)}">✎</button>
+      <button class="icon-btn" data-edit-bill="${b.id}" aria-label="Edit ${esc(b.name)}">${svgIcon("pencil")}</button>
     </div>`;
   }).join("");
 
   return `
     <div class="card">
       <div class="card-label">${fmtMonth(key)} · ${paidCount}/${activeCount} paid · ${fmtMoney(total)}/mo total</div>
-      ${bills.length ? rows : emptyStateHTML("📅", "No bills yet. Add rent, subscriptions, insurance —<br>set them once, check them off monthly.")}
+      ${bills.length ? rows : emptyStateHTML("calendar", "No bills yet. Add rent, subscriptions, insurance —<br>set them once, check them off monthly.")}
     </div>
     <div class="card">
       <div class="card-label">Add a bill</div>
@@ -80,7 +80,7 @@ function showBillEditModal(bill) {
       <input type="checkbox" id="eb-active" ${bill.active !== false ? "checked" : ""}/> Active (counts toward monthly total)
     </label>
     <label style="display:flex;align-items:center;gap:10px;margin:0 0 14px;font-size:0.92rem">
-      <input type="checkbox" id="eb-autopay" ${bill.autopay ? "checked" : ""}/> 🤖 Autopay — log it automatically on its due day
+      <input type="checkbox" id="eb-autopay" ${bill.autopay ? "checked" : ""}/> Autopay — log it automatically on its due day
     </label>
     <button id="eb-save" class="btn primary block">Save changes</button>
     <button id="eb-delete" class="btn danger block">Delete bill</button>

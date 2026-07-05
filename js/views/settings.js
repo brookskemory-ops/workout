@@ -42,7 +42,7 @@ function renderSettings() {
     <div class="card">
       <div class="card-label">PIN lock</div>
       ${hasPIN() ? `
-        <p class="row-sub" style="margin-bottom:10px">🔒 On — the app locks when opened and after 2 minutes in the background.</p>
+        <p class="row-sub" style="margin-bottom:10px">${svgIcon("lock")} On — the app locks when opened and after 2 minutes in the background.</p>
         <button id="pin-change" class="btn block">Change PIN</button>
         <button id="pin-off" class="btn danger block">Turn off PIN</button>
       ` : `
@@ -51,14 +51,14 @@ function renderSettings() {
           <input id="pin-new" class="input" inputmode="numeric" maxlength="6" placeholder="New PIN" style="margin-bottom:0" />
           <input id="pin-confirm" class="input" inputmode="numeric" maxlength="6" placeholder="Confirm" style="margin-bottom:0" />
         </div>
-        <button id="pin-on" class="btn primary block" style="margin-top:10px">🔒 Turn on PIN lock</button>
+        <button id="pin-on" class="btn primary block" style="margin-top:10px">${svgIcon("lock")} Turn on PIN lock</button>
       `}
     </div>
 
     <div class="card">
       <div class="card-label">Custom categories</div>
       ${customCats.length ? customCats.map(c => `<div class="vol-row">
-        <span class="vol-label">${c.icon} ${esc(c.name)}</span>
+        <span class="vol-label">${catIconHTML(c)} ${esc(c.name)}</span>
         <span class="vol-num">${c.type}</span>
         <button class="icon-btn" data-del-cat="${c.id}" aria-label="Delete ${esc(c.name)}">✕</button>
       </div>`).join("") : `<p class="row-sub" style="margin-bottom:10px">None yet — the built-in list covers the basics.</p>`}
@@ -77,11 +77,11 @@ function renderSettings() {
       ${state.bank.accessUrl ? `
         <p class="row-sub" style="margin-bottom:10px">Connected · ${state.bank.accounts.length} account${state.bank.accounts.length === 1 ? "" : "s"}${state.bank.lastSyncAt ? ` · synced ${fmtAgo(state.bank.lastSyncAt)}` : ""}</p>
         ${state.bank.accounts.map(a => `<div class="vol-row">
-          <span class="vol-label">🏦 ${esc(a.name)}</span>
+          <span class="vol-label">${svgIcon("landmark")} ${esc(a.name)}</span>
           <span class="row-sub">${esc(a.org)}</span>
           <span class="vol-num money">${fmtMoney(a.balance)}</span>
         </div>`).join("")}
-        <button id="bank-sync-now" class="btn primary block" style="margin-top:10px">↻ Sync now</button>
+        <button id="bank-sync-now" class="btn primary block" style="margin-top:10px">${svgIcon("refresh")} Sync now</button>
         <button id="bank-disconnect" class="btn danger block">Disconnect (removes the stored access key)</button>
       ` : `
         <p class="row-sub" style="margin-bottom:10px">Pull transactions from your real bank accounts automatically — no server involved, your credentials never touch this app.
@@ -111,10 +111,10 @@ function renderSettings() {
     <div class="card">
       <div class="card-label">Back up & export</div>
       <p class="row-sub" style="margin-bottom:10px">Your data lives only in this browser. ${last ? `Last backup: ${fmtAgo(last)}.` : `<strong class="warn">Never backed up.</strong>`}</p>
-      <button id="export-json" class="btn primary block">⬇ Download full backup (JSON)</button>
-      <button id="export-csv" class="btn block">⬇ Export transactions (CSV)</button>
+      <button id="export-json" class="btn primary block">${svgIcon("download")} Download full backup (JSON)</button>
+      <button id="export-csv" class="btn block">${svgIcon("download")} Export transactions (CSV)</button>
       <label class="btn block" style="text-align:center;cursor:pointer">
-        ⬆ Restore from backup…<input id="import-json" type="file" accept=".json,application/json" class="hidden" />
+        ${svgIcon("upload")} Restore from backup…<input id="import-json" type="file" accept=".json,application/json" class="hidden" />
       </label>
     </div>
 
@@ -157,7 +157,7 @@ function wireSettings() {
     if (!validPin(pin)) { toast("PIN must be 4–6 digits"); return; }
     if (pin !== confirmPin) { toast("PINs don't match"); return; }
     await setPIN(pin);
-    render(); toast("PIN lock on 🔒");
+    render(); toast("PIN lock on ✓");
   });
   $("#pin-change")?.addEventListener("click", () => {
     showLockScreen(() => {

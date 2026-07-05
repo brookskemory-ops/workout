@@ -97,7 +97,7 @@ function pageHeader(title, { stepper = false, sub = "" } = {}) {
   return `<header class="page-head">
     <div class="page-head-row">
       <h1>${title}</h1>
-      <button class="icon-btn gear-btn" data-nav="settings" aria-label="Settings">⚙</button>
+      <button class="icon-btn gear-btn" data-nav="settings" aria-label="Settings">${svgIcon("sliders")}</button>
     </div>
     ${stepper ? monthStepperHTML() : sub ? `<p class="page-sub">${sub}</p>` : ""}
   </header>`;
@@ -152,7 +152,7 @@ function buildTabBar() {
   const fab = document.createElement("button");
   fab.id = "fab";
   fab.setAttribute("aria-label", "Log a transaction");
-  fab.innerHTML = "＋";
+  fab.innerHTML = svgIcon("plus");
   fab.addEventListener("click", () => openQuickLog());
   document.body.appendChild(fab);
 }
@@ -189,8 +189,11 @@ function segmentedHTML(items, activeId, attr) {
     ${items.map(i => `<button class="seg-btn ${i.id === activeId ? "active" : ""}" data-${attr}="${i.id}">${i.label}</button>`).join("")}
   </div>`;
 }
+// Icon HTML for a category — legacy custom categories may still carry emoji
+// in `icon`; svgIcon falls back to the tag glyph for any unknown name.
+function catIconHTML(cat, cls) { return svgIcon(cat.icon, cls); }
 function categoryOptionsHTML(cats, selectedId) {
-  return cats.map(c => `<option value="${c.id}" ${c.id === selectedId ? "selected" : ""}>${c.icon} ${esc(c.name)}</option>`).join("");
+  return cats.map(c => `<option value="${c.id}" ${c.id === selectedId ? "selected" : ""}>${esc(c.name)}</option>`).join("");
 }
 // Expense categories ordered for logging: day-to-day first, bill-like under
 // an optgroup so "Rent" never sits at the top of a quick expense.
@@ -209,7 +212,7 @@ function statusCls(status) {
 }
 function emptyStateHTML(icon, text, ctaLabel, ctaAttr) {
   return `<div class="empty-state">
-    <div class="empty-ico" aria-hidden="true">${icon}</div>
+    <div class="empty-ico" aria-hidden="true">${svgIcon(icon)}</div>
     <p>${text}</p>
     ${ctaLabel ? `<button class="btn small" ${ctaAttr}>${ctaLabel}</button>` : ""}
   </div>`;
@@ -221,7 +224,7 @@ function txnRowHTML(t, editable) {
   const amountCls = t.type === "income" ? "pos" : t.source === "fixed" ? "fixed" : "neg";
   const sign = t.type === "income" ? "+" : "−";
   return `<${editable ? "button" : "div"} class="row txn-row" ${editable ? `data-edit-txn="${t.id}"` : ""}>
-    <span class="row-tile" aria-hidden="true">${cat.icon}</span>
+    <span class="row-tile" aria-hidden="true">${catIconHTML(cat)}</span>
     <span class="row-main">
       <span class="row-title">${esc(t.note || cat.name)}</span>
       <span class="row-sub">${esc(cat.name)}${t.source === "fixed" ? " · bill" : ""}</span>

@@ -194,10 +194,10 @@ function allExpenseCategories() {
 function allIncomeCategories() {
   return [...INCOME_CATEGORIES, ...state.customCategories.filter(c => c.type === "income")];
 }
-function expenseCatById(id) { return allExpenseCategories().find(c => c.id === id) || { id, name: id, icon: "📦" }; }
-function incomeCatById(id) { return allIncomeCategories().find(c => c.id === id) || { id, name: id, icon: "➕" }; }
+function expenseCatById(id) { return allExpenseCategories().find(c => c.id === id) || { id, name: id, icon: "tag" }; }
+function incomeCatById(id) { return allIncomeCategories().find(c => c.id === id) || { id, name: id, icon: "plus-circle" }; }
 function catForTxn(t) {
-  if (!t.category) return { id: null, name: "Uncategorized", icon: "📥" };
+  if (!t.category) return { id: null, name: "Uncategorized", icon: "inbox" };
   return t.type === "income" ? incomeCatById(t.category) : expenseCatById(t.category);
 }
 
@@ -342,7 +342,7 @@ function setSetting(key, value) {
 function addCustomCategory(name, type, icon) {
   return mutate(s => {
     const id = "custom_" + uid();
-    s.customCategories.push({ id, name, icon: icon || (type === "income" ? "➕" : "📦"), type });
+    s.customCategories.push({ id, name, icon: icon || (type === "income" ? "plus-circle" : "tag"), type });
     return id;
   });
 }
