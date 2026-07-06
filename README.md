@@ -47,7 +47,10 @@ paste a **setup token** into Keel's Settings → Bank sync. From then on it's
 about hourly while it stays open — plus **pull down to refresh** anytime. New
 transactions announce themselves with a "N new transactions → Sort" toast and
 land in your Inbox; a status chip on Home/Activity shows exactly how fresh you
-are and taps to force a sync. A visible daily budget keeps everything inside
+are and taps to force a sync. Syncs cover the **whole current month**,
+including **pending** card charges (badged until they post) — when a pending
+charge settles, Keel updates it in place, and if the bank voids it, Keel
+removes it. A visible daily budget keeps everything inside
 SimpleFIN's 24-requests/day limit (banks themselves post transactions a few
 times a day — that's the true freshness ceiling for *any* finance app). The
 access credential is stored **only on this device** — pair it with the PIN

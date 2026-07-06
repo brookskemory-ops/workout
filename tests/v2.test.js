@@ -92,7 +92,7 @@ t("mapCSVRows: split debit/credit columns", () => {
 });
 
 /* ------------------------------ simplefin mapper --------------------------- */
-t("mapSimplefinTransactions: signs, pending skip, bankId dedupe, balances", () => {
+t("mapSimplefinTransactions: signs, pending flag, bankId dedupe→updates, balances", () => {
   const resp = { accounts: [{
     id: "ACT-1", name: "Checking", org: { name: "Demo Bank" }, balance: "1024.50", "balance-date": 1751600000,
     transactions: [
@@ -104,17 +104,47 @@ t("mapSimplefinTransactions: signs, pending skip, bankId dedupe, balances", () =
   }]};
   const rules = [{ match: "fishin", categoryId: "entertainment" }];
   const r = f.mapSimplefinTransactions(resp, [], rules);
-  assert.strictEqual(r.txns.length, 2);
+  // pending T3 now imports too — flagged; zero-amount T4 still dropped
+  assert.strictEqual(r.txns.length, 3);
   assert.strictEqual(r.txns[0].type, "expense");
   assert.strictEqual(r.txns[0].suggestedCategory, "entertainment");
   assert.strictEqual(r.txns[0].bankId, "ACT-1:T1");
   assert.strictEqual(r.txns[0].inbox, true);
+  assert.strictEqual(r.txns[0].pending, false);
   assert.strictEqual(r.txns[1].type, "income");
+  assert.strictEqual(r.txns[2].pending, true);
+  assert.deepStrictEqual(r.fetchedIds, ["ACT-1:T1", "ACT-1:T2", "ACT-1:T3"]);
   assert.strictEqual(r.accounts[0].balance, 1024.5);
   assert.strictEqual(r.accounts[0].org, "Demo Bank");
-  // dedupe on second sync
+  // already-known ids come back as in-place updates, not new txns
   const r2 = f.mapSimplefinTransactions(resp, r.txns.map(t => t.bankId), rules);
   assert.strictEqual(r2.txns.length, 0);
+  assert.strictEqual(r2.updates.length, 3);
+  assert.strictEqual(r2.updates[2].bankId, "ACT-1:T3");
+});
+
+t("mapSimplefinTransactions: month filter keeps txns transacted OR posted in-month", () => {
+  // month of the posted timestamps below (computed in local time like the mapper)
+  const inMonthKey = new Date(1751500000 * 1000).toISOString() && (() => {
+    const d = new Date(1751500000 * 1000);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  })();
+  const prevMonthTs = 1751500000 - 35 * 86400; // safely in the prior month
+  const resp = { accounts: [{
+    id: "A", name: "C", balance: "0",
+    transactions: [
+      { id: "IN", posted: 1751500000, amount: "-5.00", description: "this month" },
+      { id: "OLD", posted: prevMonthTs, amount: "-6.00", description: "last month" },
+      // transacted last month, posted this month → kept, dated by posted date
+      { id: "STRADDLE", transacted_at: prevMonthTs, posted: 1751500000, amount: "-7.00", description: "straddler" },
+      // pending: transacted this month, no posted date yet → kept
+      { id: "PEND", transacted_at: 1751500000, amount: "-8.00", description: "pending", pending: true },
+    ],
+  }]};
+  const r = f.mapSimplefinTransactions(resp, [], [], inMonthKey);
+  assert.deepStrictEqual(r.txns.map(t => t.bankId), ["A:IN", "A:STRADDLE", "A:PEND"]);
+  const straddle = r.txns.find(t => t.bankId === "A:STRADDLE");
+  assert.strictEqual(straddle.date.slice(0, 7), inMonthKey);
 });
 
 /* ------------------------------ rollover ----------------------------------- */

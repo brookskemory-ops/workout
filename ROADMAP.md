@@ -33,7 +33,7 @@ back up via JSON. Rules of thumb, never financial advice.
 ## ✅ Shipped — Keel v2
 - **Bank sync** via SimpleFIN Bridge — zero-server, browser-CORS verified;
   setup-token claim or pasted access URL; 6-hour auto-sync; balances in net
-  worth; pending transactions skipped; per-transaction dedupe
+  worth; per-transaction dedupe
 - **Inbox** triage for imported/synced transactions — tap or drag-to-chip,
   suggested categories, implicit rule creation
 - **CSV import wizard** — column auto-detection (incl. split debit/credit),
@@ -75,6 +75,16 @@ Benchmarked against Rocket Money, Monarch, Copilot, and YNAB:
   spins while in flight)
 - Link-your-bank promo card on Home for unconnected users (dismissible),
   auto-sync toggle + daily-budget readout in Settings
+
+## ✅ Shipped — Keel v3.2 (complete-month sync)
+- Syncs pull the **entire current month** (00:00 on the 1st, with a day of
+  pad for timezone skew) on every request — nothing slips through overlap
+  windows, and a transaction *made* late last month but *posted* this month
+  still counts
+- **Pending transactions import** (requested via `pending=1`), badged
+  "pending" in Activity and the Inbox; when a charge posts, its amount/date
+  update **in place** (your categorization is kept); pending charges the bank
+  voids are pruned automatically
 
 ## ⏳ Ideas for future phases
 - Recurring income beyond paycheck (rental, side gigs)

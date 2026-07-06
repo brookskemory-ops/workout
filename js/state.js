@@ -604,8 +604,42 @@ function setBankAccess(accessUrl) {
 function disconnectBank() {
   mutate(s => { s.bank = { accessUrl: null, accounts: [], lastSyncAt: null, autoSync: true }; });
 }
-function applyBankSync({ txns, accounts }) {
-  mutate(s => { s.bank.accounts = accounts; s.bank.lastSyncAt = new Date().toISOString(); });
+// Consumes a mapSimplefinTransactions result: refresh balances, update
+// already-imported transactions in place (pending charges change amount/date
+// when they post), prune pending charges the bank no longer reports (voided
+// holds), then import genuinely new ones into the Inbox.
+function applyBankSync({ txns, updates, fetchedIds, accounts }) {
+  mutate(s => {
+    s.bank.accounts = accounts;
+    s.bank.lastSyncAt = new Date().toISOString();
+
+    if (updates && updates.length) {
+      const byBankId = new Map(updates.map(u => [u.bankId, u]));
+      for (const t of s.transactions) {
+        const u = t.bankId && byBankId.get(t.bankId);
+        if (!u) continue;
+        t.amount = u.amount;
+        t.date = u.date;
+        t.type = u.type;
+        t.pending = u.pending;
+        if (t.inbox) { // don't overwrite anything the user already triaged
+          t.note = u.note;
+          t.rawNote = u.rawNote;
+          t.suggestedCategory = u.suggestedCategory;
+        }
+      }
+    }
+
+    // A pending charge that disappears from the feed was voided or re-issued
+    // under a new id — drop our copy so it doesn't double-count. Only current
+    // month, only ids the bank definitely had a chance to return.
+    if (fetchedIds) {
+      const fetched = new Set(fetchedIds);
+      const nowKey = currentMonthKey();
+      s.transactions = s.transactions.filter(t =>
+        !(t.pending && t.bankId && monthKey(t.date) === nowKey && !fetched.has(t.bankId)));
+    }
+  });
   if (txns.length) importTransactions(txns);
 }
 function bumpSyncCount() {
