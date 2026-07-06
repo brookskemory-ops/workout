@@ -9,7 +9,6 @@
 const BANK_TIMEOUT_MS = 15000;
 const BANK_AUTO_SYNC_MS = 60 * 60 * 1000; // hourly while in use; the daily budget below enforces the 24/day cap
 const BANK_OVERLAP_DAYS = 3;                  // re-fetch window so nothing is missed
-const BANK_FIRST_SYNC_DAYS = 60;
 
 // fetch() rejects URLs with embedded credentials, so split them into a
 // Basic Authorization header.
@@ -74,11 +73,19 @@ async function syncBank(silent) {
   if (currentRoute() !== "welcome") render(); // spin the status chip
   try {
     bumpSyncCount();
-    const sinceDays = bank.lastSyncAt ? BANK_OVERLAP_DAYS : BANK_FIRST_SYNC_DAYS;
-    const startDate = Math.floor((bank.lastSyncAt ? new Date(bank.lastSyncAt).getTime() : Date.now()) / 1000) - sinceDays * 86400;
+    // Only this month's activity is pulled: the first sync starts at the 1st,
+    // and later syncs re-fetch a small overlap window (never crossing back
+    // past the month start).
+    const monthStart = parseDateKey(`${currentMonthKey()}-01`).getTime();
+    const overlapStart = bank.lastSyncAt
+      ? new Date(bank.lastSyncAt).getTime() - BANK_OVERLAP_DAYS * 86400000
+      : monthStart;
+    const startDate = Math.floor(Math.max(monthStart, overlapStart) / 1000);
     const data = await bankFetch(bank.accessUrl, "/accounts", { "start-date": startDate });
     if (data.errors && data.errors.length && !silent) toast(String(data.errors[0]).slice(0, 80));
     const mapped = mapSimplefinTransactions(data, existingBankIds(), state.rules);
+    // belt-and-braces: drop anything the bank returns from before this month
+    mapped.txns = mapped.txns.filter(t => monthKey(t.date) === currentMonthKey());
     applyBankSync(mapped);
     if (currentRoute() !== "welcome") render();
     const n = mapped.txns.length;

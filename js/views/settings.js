@@ -92,7 +92,7 @@ function renderSettings() {
         <p class="row-sub" style="margin-bottom:10px">Pull transactions from your real bank accounts automatically — no server involved, your credentials never touch this app.
         <br><br>1. Create an account at <strong>bridge.simplefin.org</strong> (small monthly fee, paid to them) and connect your banks there.
         <br>2. Generate a <strong>setup token</strong> ("Connect an app") and paste it below — one time only.
-        <br>3. New transactions land in your Inbox automatically (about every hour while you use the app — pull down to refresh anytime), and balances feed your net worth.</p>
+        <br>3. This month's transactions land in your Inbox automatically (about every hour while you use the app — pull down to refresh anytime), and balances feed your net worth. Older history stays out — use CSV import if you ever want it.</p>
         <input id="bank-token" class="input" placeholder="Paste SimpleFIN setup token (or access URL)" />
         <button id="bank-connect" class="btn primary block">Connect</button>
         <p class="row-sub">The resulting access key is stored only on this device. Anyone with access to this phone and no PIN could read it — consider the PIN lock below.</p>
