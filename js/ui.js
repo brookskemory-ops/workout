@@ -227,7 +227,7 @@ function txnRowHTML(t, editable) {
     <span class="row-tile" aria-hidden="true">${catIconHTML(cat)}</span>
     <span class="row-main">
       <span class="row-title">${esc(t.note || cat.name).replace(/#([\w-]+)/g, '<span class="tag-hl">#$1</span>')}</span>
-      <span class="row-sub">${esc(cat.name)}${t.source === "fixed" ? " · bill" : ""}</span>
+      <span class="row-sub">${esc(cat.name)}${t.source === "fixed" ? " · bill" : ""}${t.pending ? ` <span class="pending-pill">pending</span>` : ""}</span>
     </span>
     <span class="row-end">
       <span class="money ${amountCls}">${sign}${fmtMoney(t.amount)}</span>

@@ -851,13 +851,17 @@ function syncBudget(syncsToday, today) {
 }
 
 /* ------------------------------ bank sync (SimpleFIN) --------------------- */
-// Maps a SimpleFIN /accounts response into importable transactions. Pending
-// transactions are skipped (they change/disappear); dedupe via bankId.
+// Maps a SimpleFIN /accounts response into importable transactions,
+// INCLUDING pending ones (they're most of the recent week's card activity) —
+// flagged so the UI can badge them and later syncs can update them in place
+// when they post (or prune them if the bank voids them).
 // Amounts are strings: negative = money out (expense).
-function mapSimplefinTransactions(accountsResponse, existingBankIds, rules) {
+// monthFilterKey (optional): keep a transaction when EITHER its transacted
+// or posted date falls in that month, dated by whichever is in-month.
+function mapSimplefinTransactions(accountsResponse, existingBankIds, rules, monthFilterKey) {
   const seen = new Set(existingBankIds || []);
-  const txns = [];
-  const accounts = [];
+  const txns = [], updates = [], accounts = [];
+  const fetchedIds = [];
   for (const acct of accountsResponse.accounts || []) {
     accounts.push({
       id: acct.id,
@@ -867,24 +871,35 @@ function mapSimplefinTransactions(accountsResponse, existingBankIds, rules) {
       balanceDate: acct["balance-date"] ? dateKey(new Date(acct["balance-date"] * 1000)) : null,
     });
     for (const t of acct.transactions || []) {
-      if (t.pending) continue;
-      const bankId = `${acct.id}:${t.id}`;
-      if (seen.has(bankId)) continue;
-      seen.add(bankId);
       const amount = parseFloat(t.amount);
       if (!amount) continue;
+      const bankId = `${acct.id}:${t.id}`;
+      const tDate = t.transacted_at ? dateKey(new Date(t.transacted_at * 1000)) : null;
+      const pDate = t.posted ? dateKey(new Date(t.posted * 1000)) : tDate;
+      let date = tDate || pDate;
+      if (!date) continue;
+      if (monthFilterKey) {
+        const tIn = tDate && monthKey(tDate) === monthFilterKey;
+        const pIn = pDate && monthKey(pDate) === monthFilterKey;
+        if (!tIn && !pIn) continue;
+        date = tIn ? tDate : pDate;
+      }
+      fetchedIds.push(bankId);
       const desc = [t.payee, t.description].filter(Boolean).join(" · ");
-      txns.push({
-        date: dateKey(new Date((t.transacted_at || t.posted) * 1000)),
+      const rec = {
+        date,
         amount: Math.abs(amount),
         type: amount < 0 ? "expense" : "income",
         note: prettyMerchant(t.payee || t.description) || desc, rawNote: desc,
         suggestedCategory: applyRules(rules, t.payee, t.description, prettyMerchant(t.payee || t.description)),
         bankId, accountId: acct.id, inbox: true,
-      });
+        pending: !!t.pending,
+      };
+      if (seen.has(bankId)) updates.push(rec);
+      else { seen.add(bankId); txns.push(rec); }
     }
   }
-  return { txns, accounts };
+  return { txns, updates, fetchedIds, accounts };
 }
 
 /* ------------------------------ rollover budgets --------------------------- */

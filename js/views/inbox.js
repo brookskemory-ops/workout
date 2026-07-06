@@ -23,7 +23,7 @@ function renderInbox() {
   return `
     ${pageHeader("Inbox", { sub: `${queue.length} to sort` })}
     <div class="card hero-card inbox-card" id="inbox-card" data-txn="${t.id}">
-      <div class="row-sub">${fmtDay(t.date)}${acct ? ` · ${esc(acct.name)}` : t.importKey ? " · imported" : ""}</div>
+      <div class="row-sub">${fmtDay(t.date)}${acct ? ` · ${esc(acct.name)}` : t.importKey ? " · imported" : ""}${t.pending ? ` · <span class="pending-pill">pending</span>` : ""}</div>
       <div class="hero-amount money ${t.type === "income" ? "pos" : "neg"}" style="font-size:1.8rem">
         ${t.type === "income" ? "+" : "−"}${fmtMoney(t.amount)}</div>
       <div style="font-weight:600;margin-top:2px">${esc(t.note || "(no description)")}</div>

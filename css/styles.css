@@ -491,6 +491,11 @@ details.card[open] summary::after { transform: rotate(90deg); }
 /* ------------------------------ misc v3 ------------------------------------ */
 .tag-hl { color: var(--info); font-weight: 700; }
 .badge.warn-badge { background: var(--warn-soft); color: var(--warn); }
+.pending-pill {
+  display: inline-block; padding: 0 6px; border-radius: 999px;
+  font-size: 0.66rem; font-weight: 700; letter-spacing: 0.03em;
+  background: var(--warn-soft); color: var(--warn);
+}
 
 /* ------------------------------ inbox -------------------------------------- */
 .inbox-card { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; position: relative; z-index: 5; }
